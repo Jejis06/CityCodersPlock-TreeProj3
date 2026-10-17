@@ -27,6 +27,7 @@ import type { RelocateTarget } from '@/features/tree-card/TreeLocationEditor';
 import { TREE_STATUS_META, TREE_STATUSES, type TreeListItem } from '@/types/domain';
 
 const SUCCESS_NOTICE_MS = 4000;
+const PLANT_SEARCH_ZOOM = 20;
 
 function parseStoredGeometry(raw: string | null | undefined): ParcelGeometry | null {
   if (!raw) return null;
@@ -69,7 +70,12 @@ export function OfficialMapPage() {
 
   const handleAddressSelect = (suggestion: AddressSuggestion) => {
     setFilters((current) => ({ ...current, address: suggestion.filter_value }));
-    setFlyTarget({ lat: suggestion.lat, lng: suggestion.lng, nonce: Date.now() });
+    setFlyTarget({
+      lat: suggestion.lat,
+      lng: suggestion.lng,
+      zoom: suggestion.source === 'plant' ? PLANT_SEARCH_ZOOM : undefined,
+      nonce: Date.now(),
+    });
   };
 
   const plantingYears = useMemo(

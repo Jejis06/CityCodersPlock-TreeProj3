@@ -53,11 +53,11 @@ Baza tworzy się automatycznie przy pierwszym starcie serwera, jeśli pliku nie 
 | BaseLayer | Geoportal - Ortofotomapa HD | `https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution` | `layers="Raster"`, `format="image/jpeg"`, `transparent={false}`, `version="1.3.0"`, `maxZoom={21}`, `attribution="GUGiK Geoportal.gov.pl"` |
 | Overlay (domyślnie `checked`) | Geoportal - Działki i Budynki (KIEG) | `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow` | `layers="dzialki,numery_dzialek,budynki"`, `format="image/png"`, `transparent={true}`, `maxZoom={21}` |
 | Overlay (domyślnie wyłączony) | Geoportal - Uzbrojenie terenu (KIUT) | `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzbrojeniaTerenu` | `layers="przewod_wodociagowy,przewod_kanalizacyjny,przewod_gazowy,przewod_elektroenergetyczny,przewod_cieplowniczy,przewod_telekomunikacyjny"`, `format="image/png"`, `transparent={true}`, `maxZoom={21}` (moduł `KiutOverlay.tsx`: wpis w LayersControl + przycisk szybkiego włączenia + legenda) |
-| Overlay | Podkład projektowy CAD/DXF i Raster (Lokalny) | lokalny (`CadOverlay.tsx`) | wektorowy projekt Starego Rynku + przycisk "Wgraj podkład" (`.dxf`, `.geojson`/`.json`, `.png`/`.jpg`/`.webp`) |
+| Overlay | Podkład projektowy CAD/DXF i Raster (Lokalny) | lokalny (`CadOverlay.tsx`) | wektorowy projekt Starego Rynku (tylko wpis w `LayersControl`; pływający panel „Podkład CAD / raster (lokalny)” z przyciskiem „Wgraj z dysku” został usunięty) |
 
 - **Uwaga techniczna (sprawdzone):** usługa ORTO losowo zwraca `404` dla ok. połowy poprawnych żądań `GetMap` (niezależnie od wersji WMS) — kolejna próba zwykle się udaje. Dlatego `MapLayers.tsx` ma handler `tileerror`, który ponawia pobranie kafla (do 10 razy, z rosnącym opóźnieniem do 2 s). Nie usuwaj go. Wszystkie trzy usługi działają w `EPSG:3857`. Parametry WMS (`layers`, `format`, `transparent`, `version`) przekazujemy przez prop `params` komponentu `WMSTileLayer`.
 - Każda warstwa musi mieć `maxZoom={21}` (domyślne 18 w Leaflet ucina zbliżenie).
-- **Podkład CAD (lokalny):** domyślnie wyświetla symulowany projekt zagospodarowania Starego Rynku (obrys płyty, ścieżki, projektowane nasadzenia). Przycisk na mapie pozwala wgrać plik z dysku — przetwarzany wyłącznie w przeglądarce (nic nie leci na serwer):
+- **Podkład CAD (lokalny):** domyślnie wyświetla symulowany projekt zagospodarowania Starego Rynku (obrys płyty, ścieżki, projektowane nasadzenia). Panel wgrywania pliku z mapy usunięto (`CadUploadControl` nie istnieje, `TreeMap` nie ma propa `showCadControl`); parser w `cad/parseCadFile.ts` + `useCadLayer().loadFile` zostały i obsługują (wyłącznie w przeglądarce):
   - `.dxf` → parsowany przez `dxf-parser` (encje `LINE`, `LWPOLYLINE`, `POLYLINE`, `CIRCLE`), współrzędne CAD skalowane proporcjonalnie do ramki Starego Rynku (symulacja georeferencji),
   - `.geojson`/`.json` → `GeoJSON` (zakładamy WGS84),
   - raster `.png`/`.jpg`/`.webp` → `ImageOverlay` w ramce Starego Rynku, półprzezroczysty.
@@ -180,8 +180,8 @@ Wszystkie endpointy (poza `/api/health` i `/api/users`) wymagają nagłówka `x-
 | GET  | `/api/users` | — | 3 konta do ekranu wyboru ról |
 | GET  | `/api/species?q=&type=` | any | słownik gatunków (wyszukiwanie po nazwie PL/łacińskiej/odmianie) |
 | GET  | `/api/geocode/reverse?lat=&lng=` | official | działka z ULDK (numer, obręb, obrys jako GeoJSON) + najbliższy adres (GUGiK UUG) |
-| GET  | `/api/geocode/suggest?q=` | official | podpowiedzi adresów: ulice z bazy drzew + adresy w Płocku (GUGiK UUG) |
-| GET  | `/api/trees?species_id=&planting_year=&status=&contractor_id=&task_category=&address=` | any | lista roślin do mapy (sanitizacja dla contractor) |
+| GET  | `/api/geocode/suggest?q=` | official | podpowiedzi jednej wyszukiwarki: rośliny po kodzie (`source: 'plant'`, np. `D32/2026`), ulice z bazy drzew (`'trees'`) + adresy w Płocku (`'gugik'`, GUGiK UUG) |
+| GET  | `/api/trees?species_id=&planting_year=&status=&contractor_id=&task_category=&address=` | any | lista roślin do mapy (sanitizacja dla contractor); `address` = wspólne pole wyszukiwania: prefiks `code` (bez rozróżniania wielkości liter, `D3/2026` nie łapie `D13/2026`) LUB fragment `address` (gatunek filtruje się wyłącznie przez `species_id`) |
 | GET  | `/api/trees/next-code?type=tree\|shrub` | official | podgląd kolejnego kodu |
 | GET  | `/api/trees/:id` | any | karta rośliny + gatunek + wykonawca + historia `tasks` |
 | POST | `/api/trees` | official | dodanie rośliny (opcjonalnie z wyborem wykonawcy, `assign_planting_task`, `is_from_decision`, `decision_number`, `parcel_geometry` oraz `planting_year = null`) |
@@ -202,7 +202,7 @@ Wszystkie endpointy (poza `/api/health` i `/api/users`) wymagają nagłówka `x-
 Struktura serwera:
 ```
 server/src/
-  index.ts                 # start: auto-inicjalizacja bazy (gdy brak schematu) + seed BDOT10k (gdy < 40 roślin) + listen
+  index.ts                 # start: auto-inicjalizacja bazy (gdy brak schematu) + seed BDOT10k (gdy < 40 roślin) + applyDatabaseFixes() + listen
   app.ts                   # Express: cors, json, /uploads, montowanie routerów (1 linia na domenę), obsługa błędów
   express.d.ts             # req.user
   types.ts                 # typy domenowe (wspólne, zmiany tylko addytywne)
@@ -214,8 +214,9 @@ server/src/
   lib/treeCode.ts          # nextTreeCode(type, year?) -> D{n}/{rok}, K{n}/{rok}
   middleware/currentUser.ts  # x-user-id -> req.user (401)
   middleware/requireRole.ts  # requireRole('official') (403)
-  scripts/db-reset.ts      # npm run db:reset — wykonuje database/init.sql + seed BDOT10k
+  scripts/db-reset.ts      # npm run db:reset — wykonuje database/init.sql + seed BDOT10k + applyDatabaseFixes()
   seeds/bdot10kEnricher.ts # Osoba A: parser KML BDOT10k (Płock, TERYT 1462) + deterministyczne wzbogacanie danych
+  seeds/databaseFixes.ts   # trwałe korekty danych: applyDatabaseFixes(), REMOVED_TREE_CODES/IDS, FORCED_GREEN_TREE_CODES/IDS
   routes/users.ts          # Branch 0: GET /api/users (bez nagłówka)
   routes/species.ts        # Branch 0: GET /api/species?q=&type=
   routes/geocode.ts        # Osoba A: GET /api/geocode/reverse, /api/geocode/suggest (ULDK + UUG GUGiK)
@@ -328,7 +329,24 @@ Wyizolowany moduł (bez logiki HTTP) zasilający bazę prawdziwymi lokalizacjami
   - `address` + `plot_number`: osiedle wg reguł prostokątów współrzędnych (`DISTRICTS`), format `"{ulica} {nr}, {osiedle}, Płock"` (zgodny z `streetFromAddress`), działka `146201_1.{obręb}.{nr}[/{n}]`. Adresy/obręby są symulacją, nie danymi z ULDK.
   - `tasks` (wszystkie `assigned_to = CONTRACTOR_ID`, zgodne z regułami kolorów z §3): `red` → wycinka `assigned` ×3, potem `rejected`; `yellow` → `pending_approval` ×4 (w tym 1× Nasadzanie: Korowanie), potem pielęgnacja `assigned`; `blue` → Posadzenie `assigned` ×4, potem Palikowanie `rejected`; `green` → historia `approved` (co 3. roślina + Posadzenie dla drzew alertowych). Zadania wykonane mają zdjęcie z `/demo/photos/*.svg` i komentarz, odrzucone — powód.
 - **Zapis** `seedBdot10k()`: jedna transakcja; deterministyczne id (`bd010000-1462-4000-8000-{nr}` dla roślin, `bd01aaaa-1462-…` dla zadań) → **idempotentny**: istniejące punkty są pomijane, ponowne wywołanie przywraca tylko usunięte. Zwraca `{ source, teryt, parsed_points, inserted_trees, inserted_tasks, skipped_existing, total_trees, warranty_alert_trees }`.
-- **Wywołania:** `seedBdot10kIfSparse()` przy starcie serwera (`index.ts`) i po `npm run db:reset`, gdy w bazie jest < `BDOT10K_MIN_TREES = 40` roślin (świeży `init.sql` ma 10 → po seedzie 75); ręcznie: `POST /api/trees/seed-bdot10k` (`official`).
+- **Wywołania:** `seedBdot10kIfSparse()` przy starcie serwera (`index.ts`) i po `npm run db:reset`, gdy w bazie jest < `BDOT10K_MIN_TREES = 40` roślin (świeży `init.sql` ma 9 → po seedzie 72, bo 2 punkty BDOT10k są trwale usunięte — patrz niżej); ręcznie: `POST /api/trees/seed-bdot10k` (`official`).
+- **Pomijanie / korekty w seederze:** seeder pyta `isRemovedTree(id, code)` i `isForcedGreenTree(id, code)` z `seeds/databaseFixes.ts`. Usunięte punkty nie są wstawiane ani przywracane, ale **nadal zużywają swój numer kodu**, więc kody pozostałych roślin się nie przesuwają. Rośliny wymuszone na zielono dostają `status = 'green'`, a ich zadania są zamykane jako `approved` (`approveSeedTask()`: zdjęcie demo, komentarz, `reviewed_*`).
+
+### Migracja czyszcząca bazę — `server/src/seeds/databaseFixes.ts` (`fix/search-by-code-db-cleanup-and-dblclick-zoom`)
+- `applyDatabaseFixes()` — jedna transakcja, idempotentna (drugie wywołanie nic nie zmienia), wołana w `index.ts` przy każdym starcie serwera (po seedzie BDOT10k, log `[db-fixes]` tylko gdy coś zmieniła) oraz w `scripts/db-reset.ts`. Zwraca `{ removed_trees, greened_trees, approved_tasks }`.
+- **Trwałe usunięcie:** `DELETE FROM trees WHERE code IN ('D4/2026', 'D18/2023', 'D60/2026') OR id IN (…)` — zadania znikają kaskadowo (`ON DELETE CASCADE`). Id (`REMOVED_TREE_IDS`: `aaaaaaaa-…-0004` z `init.sql`, `bd010000-…-000000000010` i `…-000000000063` z BDOT10k) są potrzebne, bo kody BDOT10k zależą od daty seedowania. `D4/2026` (i jego zadanie wycinki) usunięto też z `database/init.sql`.
+- **Wymuszony status zielony:** `D32/2026`, `D39/2026` (`FORCED_GREEN_TREE_CODES`) → otwarte zadania (`assigned`, `pending_approval`, `rejected`) przechodzą w `approved` (`completed_at`/`reviewed_at`/`reviewed_by` uzupełnione, blokada MUTEX i powód odrzucenia wyczyszczone), potem `UPDATE trees SET status = 'green'`. Dzięki zamknięciu zadań żadna reguła z §3 nie przywróci koloru żółtego/czerwonego/niebieskiego.
+- Kolejna trwała korekta danych = nowy wpis w listach w `databaseFixes.ts` (seeder respektuje je automatycznie) — nie edytuj ręcznie bazy.
+
+### Wyszukiwanie po kodzie ewidencyjnym (`code`) i adresie — jedno pole w obu widokach
+Gatunku NIE wyszukuje się w tym polu — służy do tego wyłącznie osobny filtr „Gatunek” poniżej (`species_id` / `speciesId`).
+- **Mapa urzędnika** (`features/map/AddressAutocomplete.tsx`, placeholder „Kod (D32/2026) lub adres…”): podpowiedzi z `GET /api/geocode/suggest` — kolejność: rośliny po prefiksie kodu (ikona `#`, maks. 5, opis: gatunek • adres), ulice z ewidencji, adresy GUGiK; łącznie maks. 8. Wybór ustawia `filters.address = filter_value` (kod / ulica), więc `GET /api/trees?address=` zwraca dopasowane punkty; `OfficialMapPage` robi `flyTo` — dla `source === 'plant'` z zoomem `PLANT_SEARCH_ZOOM = 20` bezpośrednio nad roślinę.
+- **Lista / Eksport** (`features/export-and-list/AddressAutocomplete.tsx`, etykieta „Kod / ulica”): podpowiedzi budowane lokalnie z ewidencji (kody → ulice), filtr działa już w trakcie pisania. Dopasowanie w jednym miejscu: `treeMatchesSearch(tree, query)` / `codeMatchesSearch(code, query)` w `listFilters.ts` (prefiks kodu bez spacji, adres; bez polskich znaków i wielkości liter) — tabela, wykres gatunków i eksporty korzystają z tego samego `applyListFilters`. Pole w `ListFilters` nadal nazywa się `address` (zgodność wsteczna).
+- Reguła prefiksu kodu jest taka sama na serwerze i w kliencie — przy zmianach aktualizuj obie strony.
+
+### Dwuklik na markerze rośliny — `client/src/features/map/useTreeMarkerHandlers.ts`
+- `useTreeMarkerHandlers(tree, onClick?)` zwraca `eventHandlers` dla `<Marker>`: `click` → `onClick(tree)` (np. otwarcie Karty Ewidencyjnej) **opóźnione o 250 ms** (`SINGLE_CLICK_DELAY_MS`) — inaczej otwarta karta (niemodalny `Sheet` po prawej) przechwytuje drugie kliknięcie i dwuklik na roślinach z prawej części mapy nie działa; `dblclick` anuluje oczekujące kliknięcie (karta się nie otwiera/nie przełącza), robi `L.DomEvent.stopPropagation(e)` i `flyTo` z zoomem `Math.max(map.getZoom(), 19)` (0.8 s) tak, by roślina trafiła na **środek widocznej części mapy** — `sidePanelOcclusion()` odejmuje szerokość paneli `[role="dialog"]` zasłaniających lewą/prawą krawędź mapy (np. Karta Ewidencyjna). `stopPropagation` blokuje wbudowany `doubleClickZoom` Leafleta.
+- Używany przez `TreeMarker` (Osoba A) i `CompletedTreeMarker` (wykonawca, zakładka „Wykonane”) — każdy nowy marker rośliny powinien korzystać z tego hooka zamiast własnych handlerów.
 
 ### Live polling i sortowanie „najnowsze na górze” (`feat/live-polling-and-newest-first-sort`)
 - **Globalny mechanizm pollingu:** `client/src/hooks/useRealtimePolling.ts` — `useRealtimePolling(poll, { intervalMs = REALTIME_POLL_MS (3500), enabled })`. Ciche odświeżanie w tle co **3.5 s**; kolejny cykl startuje dopiero po zakończeniu poprzedniego (brak nakładających się żądań); stop, gdy `document.visibilityState === 'hidden'`, natychmiastowe odświeżenie po powrocie do karty. Hook nie robi pierwszego pobrania (robi to hook danych). Nie dodawaj własnych `setInterval` — używaj tego hooka.
@@ -352,7 +370,8 @@ Wyizolowany moduł (bez logiki HTTP) zasilający bazę prawdziwymi lokalizacjami
 | `ParcelHighlighter.tsx` | rysuje obrys działki (GeoJSON) — `geometry` z `/api/geocode/reverse` lub zapisanego `parcel_geometry` |
 | `useReverseGeocode.ts` | hook + typy odpowiedzi geokodera (cache po współrzędnych) |
 | `ViewportStatsWidget.tsx` | pływający licznik w lewym dolnym rogu: "W widoku" (`map.getBounds()`) vs "Wg filtra" |
-| `AddressAutocomplete.tsx` | "Szukaj po ulicy / adresie" (na górze filtrów); wybór → filtr `address` + `flyTo` |
+| `AddressAutocomplete.tsx` | jedna wyszukiwarka (na górze filtrów): kod rośliny (`D32/2026`), ulica, adres GUGiK (bez gatunków); wybór → filtr `address` + `flyTo` (dla kodu zoom 20) |
+| `useTreeMarkerHandlers.ts` | wspólne `eventHandlers` markerów: `click` → `onClick(tree)`, `dblclick` → płynny `flyTo` nad roślinę (zoom ≥ 19, środek widocznej części mapy obok Karty Drzewa) |
 | `MapFlyTo.tsx` | `flyTo` na `FlyTarget` (z `nonce`) |
 | `MapFiltersPanel.tsx` | komplet filtrów w lewym panelu: adres, status, typ, gatunek, rok, kategoria zadań, wykonawca |
 | `MapFilterBar.tsx` | pasek nad mapą: licznik + przycisk **"Alerty Decyzji (3 lata)"** z licznikiem + przycisk **"Dodaj roślinę"** |
@@ -420,7 +439,7 @@ Całkowicie niezależny moduł (nie modyfikuje `features/map/*`; z modułu Osoby
 - **Wygląd** (`listUi.tsx`): wspólne klasy paneli (`PANEL_CLASS` — `rounded-2xl`, miękki cień), pól filtrów (`FIELD_CLASS`), etykiet (`FIELD_LABEL_CLASS`) i nagłówek panelu `PanelHeader` (ikona w kafelku + tytuł + opis + `aside`). Nowe panele widoku listy buduj z tych klas zamiast `Card`.
 - **Dane** (`useInventoryData`): `GET /api/trees` bez filtrów + `GET /api/tasks`; filtrowanie tabeli odbywa się po stronie klienta (natychmiastowe). `toListTrees()` (`inventoryModel.ts`) dokłada pola pochodne (nie ma ich w bazie): `street` (adres bez numeru, np. „ul. Tumska”), `species_label`, `from_decision`, `decision_ref`.
 - **„Z decyzji”** — heurystyka bez zmian w schemacie: roślina jest „z decyzji”, jeśli `trees.notes` lub opis któregoś z jej zadań zawiera numer decyzji (`decyzja WOŚ.6131.12.2026` → `decision_ref = 'WOŚ.6131.12.2026'`) albo frazy „decyzj…”, „nasadzenie zastępcze”, „zezwolenie na usunięcie”. Jeśli kiedyś dojdzie kolumna w bazie, podmień tylko `detectDecision()`.
-- **Filtry** (`listFilters.ts` + `ListFilterBar.tsx`): ulica/adres z autouzupełnianiem (`AddressAutocomplete.tsx`, podpowiedzi ulic z licznikiem roślin, wyszukiwanie bez polskich znaków), gatunek, rok posadzenia, wykonawca (także „bez wykonawcy”), typ, status (chipy), decyzja (Wszystkie / Z decyzji / Bez decyzji). `describeListFilters()` daje opis filtrów do nagłówków raportów.
+- **Filtry** (`listFilters.ts` + `ListFilterBar.tsx`): pole „Kod / ulica” z autouzupełnianiem (`AddressAutocomplete.tsx`, podpowiedzi kodów `D32/2026` i ulic z licznikiem roślin, wyszukiwanie bez polskich znaków, `treeMatchesSearch()`), gatunek, rok posadzenia, wykonawca (także „bez wykonawcy”), typ, status (chipy), decyzja (Wszystkie / Z decyzji / Bez decyzji). `describeListFilters()` daje opis filtrów do nagłówków raportów.
 - **Tabela** (`TreesDataTable.tsx`): sortowanie po kolumnach (kody naturalnie: D2 < D10, puste wartości zawsze na końcu), checkboxy (z „zaznacz wszystkie widoczne”), przypięty do prawej przycisk „Pokaż na mapie” (flyTo na osadzonej mapie `ListMapPanel`). Klik w marker przewija tabelę do wiersza.
 - **Wykres** (`SpeciesFrequencyChart.tsx`): SVG bez bibliotek, OX = gatunki, OY = ilość wystąpień dla przefiltrowanych danych (`speciesFrequency()`), max 20 słupków, drzewa `#047857` / krzewy `#7c3aed`; klik w słupek przełącza filtr gatunku.
 - **Wycinek mapy do PDF** (`MapAreaPdfSelector.tsx` jako dziecko `<TreeMap>` w `ListMapPanel`): przycisk „Zaznacz obszar na mapie do PDF” → przeciągnięcie prostokąta (na czas rysowania wyłączone `dragging`/`boxZoom`, Esc anuluje) → `MapAreaPdfDialog.tsx` „Eksport wycinka mapy do PDF”: podgląd zdjęcia, lista roślin w prostokącie, wybór podkładu (ORTO/TOPO) i KIEG, pole nazwy (`Mapa_Wycinek_Plock_RRRR-MM-DD.pdf`), przycisk „Wybierz miejsce zapisu i pobierz PDF”. Selector można osadzić w dowolnej `<TreeMap>` jedną linią: `<MapAreaPdfSelector trees={…} generatedBy={…} />`.

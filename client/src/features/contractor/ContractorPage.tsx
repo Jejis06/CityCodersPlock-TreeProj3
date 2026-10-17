@@ -177,7 +177,6 @@ export function ContractorPage({ standalone = false, header }: ContractorPagePro
                   selectedTreeId={selectedTreeId}
                   onTreeClick={onTreeClick}
                   layersCollapsed
-                  showCadControl={false}
                   showLegend={markerVariant === 'status'}
                 >
                   {markerVariant === 'completed' &&

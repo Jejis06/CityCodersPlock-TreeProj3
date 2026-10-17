@@ -51,7 +51,6 @@ export function ListMapPanel({ trees, focused, focusRequest, onTreeClick, genera
       selectedTreeId={focused?.id ?? null}
       onTreeClick={handleClick}
       showLegend={false}
-      showCadControl={false}
       layersCollapsed
     >
       <FitToTrees trees={trees} />

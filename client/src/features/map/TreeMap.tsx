@@ -4,7 +4,6 @@ import { useEffect, type ReactNode } from 'react';
 import { MapContainer, useMap, useMapEvents } from 'react-leaflet';
 import { cn } from '@/lib/utils';
 import type { TreeListItem } from '@/types/domain';
-import { CadUploadControl } from './cad/CadUploadControl';
 import { useCadLayer } from './cad/useCadLayer';
 import { MapLayers } from './MapLayers';
 import { MapLegend } from './MapLegend';
@@ -24,7 +23,6 @@ export interface TreeMapProps {
   showLegend?: boolean;
   /** Extra classes for the legend, e.g. to lift it above a widget in the bottom-left corner. */
   legendClassName?: string;
-  showCadControl?: boolean;
   layersCollapsed?: boolean;
   className?: string;
   children?: ReactNode;
@@ -55,7 +53,6 @@ export function TreeMap({
   pendingPosition = null,
   showLegend = true,
   legendClassName,
-  showCadControl = true,
   layersCollapsed = false,
   className,
   children,
@@ -74,7 +71,6 @@ export function TreeMap({
         {pendingPosition && <PendingTreeMarker position={pendingPosition} />}
         {children}
       </MapContainer>
-      {showCadControl && <CadUploadControl cad={cad} />}
       {showLegend && <MapLegend className={legendClassName} />}
     </div>
   );

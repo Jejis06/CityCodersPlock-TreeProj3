@@ -6,6 +6,7 @@ import { execute, nowIso, queryAll, queryOne, withTransaction } from '../lib/db.
 import { codePrefix } from '../lib/treeCode.js';
 import { reverseGeocodePoint } from '../routes/geocode.js';
 import type { PlantType, TaskCategory, TaskStatus, TaskSubcategory, TreeStatus } from '../types.js';
+import { isForcedGreenTree, isRemovedTree } from './databaseFixes.js';
 
 /**
  * BDOT10k seeder: real tree locations for Płock (TERYT 1462, KML `drzewa_dbdot10k`)
@@ -505,6 +506,22 @@ function buildTasks(input: BuildTasksInput): EnrichedTask[] {
   }
 }
 
+/** Closes an open seed task as `approved` (plants forced to green in `databaseFixes.ts`). */
+function approveSeedTask(task: EnrichedTask): EnrichedTask {
+  if (task.status === 'approved') return task;
+  const completedAt = task.completed_at ?? task.created_at;
+  return {
+    ...task,
+    status: 'approved',
+    contractor_comment: task.contractor_comment ?? CONTRACTOR_COMMENTS[task.subcategory][0] ?? null,
+    contractor_photo_url: task.contractor_photo_url ?? PHOTO_FOR_SUBCATEGORY[task.subcategory],
+    completed_at: completedAt,
+    official_rejection_reason: null,
+    reviewed_by: task.reviewed_by ?? task.created_by,
+    reviewed_at: task.reviewed_at ?? completedAt,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // 5. Database seeding
 // ---------------------------------------------------------------------------
@@ -556,6 +573,11 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
     let alertTrees = 0;
 
     for (const plant of plants) {
+      // The number is consumed even for removed plants, so the remaining codes stay stable.
+      const prefix = codePrefix(plant.type);
+      const code = `${prefix}${nextNumber[prefix]++}/${plant.code_year}`;
+      if (isRemovedTree(plant.id, code)) continue;
+
       if (existing.has(plant.id)) {
         execute(
           `UPDATE trees
@@ -577,8 +599,9 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
       if (speciesTypes.get(plant.species_id) !== plant.type) {
         throw new Error(`[bdot10k] Gatunek ${plant.species_id} nie pasuje do typu "${plant.type}".`);
       }
-      const prefix = codePrefix(plant.type);
-      const code = `${prefix}${nextNumber[prefix]++}/${plant.code_year}`;
+      const forceGreen = isForcedGreenTree(plant.id, code);
+      const status: TreeStatus = forceGreen ? 'green' : plant.status;
+      const tasks = forceGreen ? plant.tasks.map(approveSeedTask) : plant.tasks;
 
       execute(
         `INSERT INTO trees (id, code, type, species_id, latitude, longitude, address, plot_number, parcel_geometry,
@@ -600,7 +623,7 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
           plantingYear: plant.planting_year,
           isFromDecision: plant.is_from_decision,
           decisionNumber: plant.decision_number,
-          status: plant.status,
+          status,
           contractorId: plant.contractor_id,
           contractNumber: plant.contract_number,
           contractScanUrl: plant.contract_scan_url,
@@ -615,7 +638,7 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
         alertTrees++;
       }
 
-      for (const task of plant.tasks) {
+      for (const task of tasks) {
         execute(
           `INSERT INTO tasks (id, tree_id, category, subcategory, status, assigned_to, created_by, description,
                               contract_number, contract_scan_url, contractor_comment, contractor_photo_url,

@@ -7,7 +7,7 @@ export interface TreeFilters {
   plantingYear: number | null;
   taskCategory: TaskCategory | null;
   contractorId: string | null;
-  /** Street / address fragment (GET /api/trees?address=). */
+  /** Inventory code prefix (D32/2026), street / address or species name fragment (GET /api/trees?address=). */
   address: string | null;
 }
 

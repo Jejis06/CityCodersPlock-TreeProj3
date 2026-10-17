@@ -108,7 +108,7 @@ function requiredNumber(value: unknown, name: string, min: number, max: number):
   return value;
 }
 
-/** GET /api/trees?species_id=&planting_year=&status=green,red&type=&contractor_id=&task_category= */
+/** GET /api/trees?species_id=&planting_year=&status=green,red&type=&contractor_id=&task_category=&address= */
 treesRouter.get('/', (req, res) => {
   const user = getUser(req);
   const where: string[] = [];
@@ -146,10 +146,13 @@ treesRouter.get('/', (req, res) => {
     params.contractorId = contractorId;
   }
 
+  // One search field: inventory code (prefix, so "D3/2026" does not match "D13/2026") or address.
   const address = queryString(req.query.address);
   if (address) {
-    where.push("t.address LIKE :address ESCAPE '\\'");
-    params.address = `%${address.replace(/[\\%_]/g, '\\$&')}%`;
+    const escaped = address.replace(/[\\%_]/g, '\\$&');
+    where.push(`(t.code LIKE :codePrefix ESCAPE '\\' OR t.address LIKE :address ESCAPE '\\')`);
+    params.codePrefix = `${escaped}%`;
+    params.address = `%${escaped}%`;
   }
 
   const taskCategory = queryString(req.query.task_category);

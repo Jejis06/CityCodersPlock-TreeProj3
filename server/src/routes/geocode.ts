@@ -49,11 +49,14 @@ export interface ReverseGeocodeResult {
 export interface AddressSuggestion {
   label: string;
   detail: string;
-  source: 'trees' | 'gugik';
+  /** `plant` = single plant by inventory code, `trees` = street from our database. */
+  source: 'plant' | 'trees' | 'gugik';
   /** Value for GET /api/trees?address= (only for suggestions coming from our tree database). */
   filter_value: string | null;
   lat: number;
   lng: number;
+  /** Only for `plant` suggestions. */
+  tree_id?: string;
 }
 
 async function fetchUpstream(url: string): Promise<string> {
@@ -273,11 +276,58 @@ function treeStreetSuggestions(query: string): AddressSuggestion[] {
     .sort(([a], [b]) => a.localeCompare(b, 'pl'))
     .map(([street, e]) => ({
       label: street,
-      detail: `${e.count} ${e.count === 1 ? 'roślina' : 'roślin'} w ewidencji`,
+      detail: plantsCount(e.count),
       source: 'trees' as const,
       filter_value: street,
       lat: e.latSum / e.count,
       lng: e.lngSum / e.count,
+    }));
+}
+
+const MAX_PLANT_SUGGESTIONS = 5;
+const plantsCount = (n: number) => `${n} ${n === 1 ? 'roślina' : 'roślin'} w ewidencji`;
+
+interface PlantRow {
+  id: string;
+  code: string;
+  address: string | null;
+  latitude: number;
+  longitude: number;
+  polish_name: string;
+  cultivar: string | null;
+}
+
+const speciesName = (polishName: string, cultivar: string | null) =>
+  cultivar && !/^pospolit[ay]$/.test(cultivar) ? `${polishName} ${cultivar}` : polishName;
+
+const codeSortKey = (code: string) => {
+  const [, prefix = '', n = '0', year = '0'] = /^([A-Z])(\d+)\/(\d{4})$/.exec(code) ?? [];
+  return { prefix, n: Number(n), year: Number(year) };
+};
+
+/** Inventory codes starting with the query, e.g. "d32" -> D32/2026 (case-insensitive). */
+function plantCodeSuggestions(query: string): AddressSuggestion[] {
+  const needle = query.replace(/\s+/g, '').toUpperCase();
+  const rows = queryAll<PlantRow>(
+    `SELECT t.id, t.code, t.address, t.latitude, t.longitude, s.polish_name, s.cultivar
+       FROM trees t JOIN species_dictionary s ON s.id = t.species_id`,
+  );
+  return rows
+    .filter((row) => row.code.toUpperCase().startsWith(needle))
+    .sort((a, b) => {
+      const ka = codeSortKey(a.code);
+      const kb = codeSortKey(b.code);
+      return ka.prefix.localeCompare(kb.prefix) || ka.n - kb.n || ka.year - kb.year;
+    })
+    .slice(0, MAX_PLANT_SUGGESTIONS)
+    .map((row) => ({
+      label: row.code,
+      detail: [speciesName(row.polish_name, row.cultivar), row.address].filter(Boolean).join(' • '),
+      source: 'plant' as const,
+      filter_value: row.code,
+      lat: row.latitude,
+      lng: row.longitude,
+      tree_id: row.id,
     }));
 }
 
@@ -297,7 +347,7 @@ async function gugikAddressSuggestions(query: string): Promise<AddressSuggestion
 
 /**
  * GET /api/geocode/suggest?q=
- * Streets from our tree database first, then Płock addresses from GUGiK.
+ * Plants by inventory code and streets from our tree database first, then Płock addresses from GUGiK.
  */
 geocodeRouter.get('/suggest', async (req, res) => {
   const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
@@ -306,7 +356,7 @@ geocodeRouter.get('/suggest', async (req, res) => {
     return;
   }
 
-  const fromTrees = treeStreetSuggestions(query);
+  const fromTrees = [...plantCodeSuggestions(query), ...treeStreetSuggestions(query)];
   let fromGugik: AddressSuggestion[] = [];
   try {
     fromGugik = await gugikAddressSuggestions(query);

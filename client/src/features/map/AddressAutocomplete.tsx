@@ -1,4 +1,4 @@
-import { MapPin, Search, X } from 'lucide-react';
+import { Hash, MapPin, Search, X, type LucideIcon } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { Spinner } from '@/components/shared/Feedback';
 import { Input } from '@/components/shared/FormControls';
@@ -9,6 +9,12 @@ import type { AddressSuggestion } from './useReverseGeocode';
 const DEBOUNCE_MS = 250;
 const MIN_QUERY_LENGTH = 2;
 
+const SOURCE_ICONS: Record<AddressSuggestion['source'], LucideIcon> = {
+  plant: Hash,
+  trees: MapPin,
+  gugik: MapPin,
+};
+
 interface AddressAutocompleteProps {
   /** Street currently used as a tree filter (shown as a chip instead of the input). */
   value: string | null;
@@ -18,7 +24,7 @@ interface AddressAutocompleteProps {
   className?: string;
 }
 
-/** "Szukaj po ulicy / adresie": streets from our tree database + Płock addresses (GUGiK). */
+/** One search field: plant codes (D32/2026) and streets from our database + Płock addresses (GUGiK). */
 export function AddressAutocomplete({ value, onSelect, onClear, className }: AddressAutocompleteProps) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -71,7 +77,7 @@ export function AddressAutocomplete({ value, onSelect, onClear, className }: Add
         <span className="flex-1 truncate" title={value}>
           {value}
         </span>
-        <button type="button" onClick={onClear} aria-label="Wyczyść filtr adresu" className="rounded p-0.5 hover:bg-emerald-100">
+        <button type="button" onClick={onClear} aria-label="Wyczyść filtr wyszukiwania" className="rounded p-0.5 hover:bg-emerald-100">
           <X className="size-4" />
         </button>
       </div>
@@ -89,7 +95,7 @@ export function AddressAutocomplete({ value, onSelect, onClear, className }: Add
         aria-controls={listId}
         aria-autocomplete="list"
         className="pl-9 pr-9"
-        placeholder="Szukaj po ulicy / adresie…"
+        placeholder="Kod (D32/2026) lub adres…"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -121,22 +127,28 @@ export function AddressAutocomplete({ value, onSelect, onClear, className }: Add
           className="absolute z-[1100] mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
         >
           {suggestions.length === 0 && !loading && <li className="px-3 py-2 text-sm text-slate-500">Brak podpowiedzi.</li>}
-          {suggestions.map((s, index) => (
-            <li
-              key={`${s.source}:${s.label}`}
-              role="option"
-              aria-selected={index === highlighted}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                select(s);
-              }}
-              onMouseEnter={() => setHighlighted(index)}
-              className={cn('cursor-pointer px-3 py-2 text-sm', index === highlighted && 'bg-emerald-50')}
-            >
-              <span className="block font-medium text-slate-900">{s.label}</span>
-              <span className="block text-xs text-slate-500">{s.detail}</span>
-            </li>
-          ))}
+          {suggestions.map((s, index) => {
+            const Icon = SOURCE_ICONS[s.source];
+            return (
+              <li
+                key={`${s.source}:${s.label}`}
+                role="option"
+                aria-selected={index === highlighted}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  select(s);
+                }}
+                onMouseEnter={() => setHighlighted(index)}
+                className={cn('flex cursor-pointer gap-2 px-3 py-2 text-sm', index === highlighted && 'bg-emerald-50')}
+              >
+                <Icon className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+                <span className="min-w-0">
+                  <span className="block font-medium text-slate-900">{s.label}</span>
+                  <span className="block truncate text-xs text-slate-500">{s.detail}</span>
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

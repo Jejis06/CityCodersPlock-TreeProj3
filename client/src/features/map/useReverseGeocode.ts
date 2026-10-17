@@ -25,10 +25,12 @@ export interface ReverseGeocodeResult {
 export interface AddressSuggestion {
   label: string;
   detail: string;
-  source: 'trees' | 'gugik';
+  /** `plant` = single plant by inventory code, `trees` = street from our database. */
+  source: 'plant' | 'trees' | 'gugik';
   filter_value: string | null;
   lat: number;
   lng: number;
+  tree_id?: string;
 }
 
 const cache = new Map<string, ReverseGeocodeResult>();

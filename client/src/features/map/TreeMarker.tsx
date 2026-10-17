@@ -1,7 +1,7 @@
 import L from 'leaflet';
-import { useMemo } from 'react';
 import { Marker, Tooltip } from 'react-leaflet';
 import { speciesLabel, TREE_STATUS_META, type TreeListItem } from '@/types/domain';
+import { useTreeMarkerHandlers } from './useTreeMarkerHandlers';
 
 const iconCache = new Map<string, L.DivIcon>();
 
@@ -36,7 +36,7 @@ interface TreeMarkerProps {
 }
 
 export function TreeMarker({ tree, selected = false, onClick }: TreeMarkerProps) {
-  const eventHandlers = useMemo(() => ({ click: () => onClick?.(tree) }), [onClick, tree]);
+  const eventHandlers = useTreeMarkerHandlers(tree, onClick);
 
   return (
     <Marker

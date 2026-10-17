@@ -100,7 +100,7 @@ export function ListFilterBar({ trees, filters, onChange, options }: ListFilterB
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <Field label="Ulica / adres">
+        <Field label="Kod / ulica">
           <AddressAutocomplete
             trees={trees}
             value={filters.address}

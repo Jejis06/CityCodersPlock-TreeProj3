@@ -19,7 +19,10 @@ export const STATUS_SHORT_LABELS: Record<TreeStatus, string> = {
 export type DecisionFilter = 'all' | 'yes' | 'no';
 
 export interface ListFilters {
-  /** Free text matched against the address (diacritics-insensitive), filled by the street autocomplete. */
+  /**
+   * Free search text (diacritics/case-insensitive): inventory code prefix (D32, D32/2026, K1/2026),
+   * or address. Filled by the search autocomplete.
+   */
   address: string;
   plantingYear: number | null;
   speciesId: number | null;
@@ -44,6 +47,22 @@ export function normalizeText(value: string): string {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/ł/g, 'l').replace(/Ł/g, 'L').toLowerCase().trim();
 }
 
+/**
+ * `query` must already be normalized (`normalizeText`). The code is matched as a prefix, ignoring spaces,
+ * so "D3/2026" does not match "D13/2026" (same rule as GET /api/trees?address=).
+ */
+export function codeMatchesSearch(code: string, query: string): boolean {
+  return query !== '' && normalizeText(code).startsWith(query.replace(/\s+/g, ''));
+}
+
+export function treeMatchesSearch(tree: ListTree, query: string): boolean {
+  if (!query) return true;
+  return (
+    codeMatchesSearch(tree.code, query) ||
+    normalizeText(tree.address ?? '').includes(query)
+  );
+}
+
 export function hasActiveListFilters(filters: ListFilters): boolean {
   return (
     filters.address.trim() !== '' ||
@@ -57,9 +76,9 @@ export function hasActiveListFilters(filters: ListFilters): boolean {
 }
 
 export function applyListFilters(trees: ListTree[], filters: ListFilters): ListTree[] {
-  const address = normalizeText(filters.address);
+  const search = normalizeText(filters.address);
   return trees.filter((tree) => {
-    if (address && !normalizeText(tree.address ?? '').includes(address)) return false;
+    if (!treeMatchesSearch(tree, search)) return false;
     if (filters.plantingYear !== null && tree.planting_year !== filters.plantingYear) return false;
     if (filters.speciesId !== null && tree.species_id !== filters.speciesId) return false;
     if (filters.contractorId === NO_CONTRACTOR && tree.contractor_id !== null) return false;
@@ -80,7 +99,7 @@ export function describeListFilters(
   lookups: { speciesLabel: (id: number) => string | undefined; contractorName: (id: string) => string | undefined },
 ): string[] {
   const parts: string[] = [];
-  if (filters.address.trim()) parts.push(`Adres: „${filters.address.trim()}”`);
+  if (filters.address.trim()) parts.push(`Szukaj (kod / adres): „${filters.address.trim()}”`);
   if (filters.type) parts.push(`Typ: ${PLANT_TYPE_LABELS[filters.type]}`);
   if (filters.speciesId !== null) parts.push(`Gatunek: ${lookups.speciesLabel(filters.speciesId) ?? filters.speciesId}`);
   if (filters.plantingYear !== null) parts.push(`Rok posadzenia: ${filters.plantingYear}`);

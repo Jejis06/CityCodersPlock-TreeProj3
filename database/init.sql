@@ -273,10 +273,11 @@ INSERT INTO users (id, full_name, role, device) VALUES
   ('22222222-2222-2222-2222-222222222222', 'Piotr Nowak',   'official',   'desktop'),
   ('33333333-3333-3333-3333-333333333333', 'Jan Zieliński', 'contractor', 'tablet');
 
--- 4.2 Rośliny (10 szt., wszystkie 4 kolory + 2 drzewa z decyzji przed upływem 3 lat gwarancji)
+-- 4.2 Rośliny (9 szt., wszystkie 4 kolory + 2 drzewa z decyzji przed upływem 3 lat gwarancji)
 --   green:  D1/2026, D6/2026, K1/2026, D8/2026 (z decyzji 2023), D9/2026 (z decyzji 2023)
 --   yellow: D2/2026 (czeka na zatwierdzenie), D3/2026 (czeka na zatwierdzenie)
---   red:    D4/2026 (wycinka zlecona), D5/2026 (wycinka odrzucona do poprawki)
+--   red:    D5/2026 (wycinka odrzucona do poprawki)
+--   (D4/2026 usunięty trwale — patrz server/src/seeds/databaseFixes.ts)
 --   blue:   D7/2026 (nowe nasadzenie)
 -- Zdjęcia i skany demo: ścieżki względne serwowane z client/public/demo/...
 INSERT INTO trees
@@ -298,11 +299,6 @@ VALUES
    '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/014', '/demo/contracts/UM-ZZ-2026-014.pdf',
    'WFOŚiGW w Warszawie (dotacja 80%)', 'Pomnik przyrody — kandydat.', '11111111-1111-1111-1111-111111111111'),
 
-  ('aaaaaaaa-0000-0000-0000-000000000004', 'D4/2026', 'tree', 39, 52.54890, 19.69800,
-   'Al. Stanisława Jachowicza 30A, Płock', '146201_1.0007.185', 1968, 'red',
-   '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/021', '/demo/contracts/UM-ZZ-2026-021.pdf',
-   'Budżet Miasta Płocka', 'Drzewo zamierające, zagrożenie dla ruchu pieszego.', '22222222-2222-2222-2222-222222222222'),
-
   ('aaaaaaaa-0000-0000-0000-000000000005', 'D5/2026', 'tree', 34, 52.53790, 19.70120,
    'Jana Kilińskiego 1, Płock', '146201_1.0008.981/9', 1975, 'red',
    '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/021', '/demo/contracts/UM-ZZ-2026-021.pdf',
@@ -315,7 +311,7 @@ VALUES
   ('aaaaaaaa-0000-0000-0000-000000000007', 'D7/2026', 'tree', 55, 52.54100, 19.69770,
    'Jana Zygmunta Jakubowskiego 5, Płock', '146201_1.0008.930/11', 2026, 'blue',
    '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/030', '/demo/contracts/UM-ZZ-2026-030.pdf',
-   'Rządowy program "Zielone Miasta" (NFOŚiGW)', 'Nasadzenie zastępcze za wycinkę D4/2026.', '11111111-1111-1111-1111-111111111111'),
+   'Rządowy program "Zielone Miasta" (NFOŚiGW)', 'Nasadzenie zastępcze za wycinkę przy Al. Jachowicza.', '11111111-1111-1111-1111-111111111111'),
 
   ('aaaaaaaa-0000-0000-0000-000000000008', 'K1/2026', 'shrub', 71, 52.54215, 19.69330,
    'Obrońców Warszawy 1, Płock', '146201_1.0008.826/2', 2022, 'green',
@@ -343,7 +339,7 @@ VALUES
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 years', '+23 days'),
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 years', '+23 days'));
 
--- 4.3 Zadania (6 szt., wszystkie statusy)
+-- 4.3 Zadania (5 szt., wszystkie statusy)
 INSERT INTO tasks
   (id, tree_id, category, subcategory, status, assigned_to, created_by, description,
    contract_number, contract_scan_url, contractor_comment, contractor_photo_url, completed_at,
@@ -380,15 +376,6 @@ VALUES
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 minutes'),
    NULL, NULL, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 days')),
 
-  -- D4: wycinka — przypisana, do wykonania
-  ('bbbbbbbb-0000-0000-0000-000000000004', 'aaaaaaaa-0000-0000-0000-000000000004',
-   'wycinka', 'wycinka', 'assigned',
-   '33333333-3333-3333-3333-333333333333', '22222222-2222-2222-2222-222222222222',
-   'Wycinka wraz z frezowaniem pnia. Zgoda: decyzja WOŚ.6131.12.2026.',
-   'UM/ZZ/2026/021', '/demo/contracts/UM-ZZ-2026-021.pdf',
-   NULL, NULL, NULL,
-   NULL, NULL, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day')),
-
   -- D5: wycinka — odrzucona, wraca do wykonawcy
   ('bbbbbbbb-0000-0000-0000-000000000005', 'aaaaaaaa-0000-0000-0000-000000000005',
    'wycinka', 'wycinka', 'rejected',
@@ -419,6 +406,6 @@ PRAGMA foreign_keys = ON;
 -- 5. SZYBKA WERYFIKACJA (opcjonalnie, w `sqlite3 database/tree-monitor.db`)
 -- =============================================================================
 -- SELECT count(*) FROM species_dictionary;                 -- 100
--- SELECT code, status FROM trees ORDER BY code;            -- 8 roślin
--- SELECT status, count(*) FROM tasks GROUP BY status;      -- approved 1, pending 2, assigned 2, rejected 1
+-- SELECT code, status FROM trees ORDER BY code;            -- 9 roślin (przed seedem BDOT10k)
+-- SELECT status, count(*) FROM tasks GROUP BY status;      -- approved 1, pending 2, assigned 1, rejected 1
 -- PRAGMA foreign_key_check;                                -- brak wyników = spójne FK
