@@ -1,9 +1,10 @@
-import { AlertTriangle, CheckCircle2, Clock, Hammer, MapPin } from 'lucide-react';
+import { CheckCircle2, Clock, Hammer, MapPin } from 'lucide-react';
 import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
 import { EmptyState } from '@/components/shared/Feedback';
+import { PlantIdentity, TaskCategoryChip } from '@/components/shared/PlantBadge';
 import { cn, formatDateTime } from '@/lib/utils';
-import { speciesLabel, TASK_CATEGORY_LABELS, TASK_SUBCATEGORY_LABELS } from '@/types/domain';
+import { RejectionFeedbackBox } from './RejectionFeedbackBox';
 import type { ContractorTask } from './types';
 
 interface TaskListProps {
@@ -42,30 +43,24 @@ export function TaskList({ tasks, mode, selectedTaskId, onSelect, onExecute }: T
               )}
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="text-xl font-bold">{task.tree_code}</p>
-                <Badge variant={task.status === 'approved' ? 'default' : task.status === 'pending_approval' ? 'warning' : rejected ? 'destructive' : 'secondary'}>
-                  {task.status === 'approved' ? 'Zatwierdzone' : task.status === 'pending_approval' ? 'W weryfikacji' : rejected ? 'Odrzucone' : 'Do wykonania'}
+                <PlantIdentity
+                  type={task.tree_type}
+                  code={task.tree_code}
+                  speciesPolishName={task.species_polish_name}
+                  speciesCultivar={task.species_cultivar}
+                />
+                <Badge className="shrink-0" variant={task.status === 'approved' ? 'default' : task.status === 'pending_approval' ? 'warning' : rejected ? 'destructive' : 'secondary'}>
+                  {task.status === 'approved' ? 'Zatwierdzone' : task.status === 'pending_approval' ? 'W weryfikacji' : rejected ? 'Do poprawy' : 'Do wykonania'}
                 </Badge>
               </div>
-              <p className="text-sm text-slate-600">{speciesLabel(task.species_polish_name, task.species_cultivar)}</p>
-              <p className="mt-1 text-base font-semibold text-emerald-800">
-                {TASK_CATEGORY_LABELS[task.category]}: {TASK_SUBCATEGORY_LABELS[task.subcategory]}
-              </p>
-              {task.tree_address && (
-                <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+              <TaskCategoryChip className="mt-2" category={task.category} subcategory={task.subcategory} />
+              {task.tree_address && !rejected && (
+                <p className="mt-2 flex items-center gap-1 text-xs text-slate-500">
                   <MapPin className="size-3" /> {task.tree_address}
                 </p>
               )}
 
-              {rejected && (
-                <div role="alert" className="mt-3 flex gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
-                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                  <div>
-                    <p className="font-semibold">Odrzucone przez urzędnika</p>
-                    <p>{task.official_rejection_reason ?? 'Brak podanego powodu.'}</p>
-                  </div>
-                </div>
-              )}
+              {rejected && <RejectionFeedbackBox className="mt-3" task={task} onShowOnMap={onSelect} />}
 
               {mode === 'done' && task.completed_at && (
                 <p className="mt-2 flex items-center gap-1 text-xs text-slate-500">

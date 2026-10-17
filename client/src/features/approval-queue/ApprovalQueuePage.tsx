@@ -7,7 +7,8 @@ import { Card } from '@/components/shared/Card';
 import { EmptyState, ErrorMessage, Spinner } from '@/components/shared/Feedback';
 import { api } from '@/lib/api';
 import { cn, formatDateTime } from '@/lib/utils';
-import { speciesLabel, TASK_CATEGORY_LABELS, TASK_SUBCATEGORY_LABELS } from '@/types/domain';
+import { PlantBadge, TaskCategoryChip } from '@/components/shared/PlantBadge';
+import { speciesLabel } from '@/types/domain';
 import { ReviewDialog } from './ReviewDialog';
 import type { QueueTask } from './types';
 import { QUEUE_POLL_MS, useApprovalQueue } from './useApprovalQueue';
@@ -91,13 +92,15 @@ export function ApprovalQueuePage() {
                   )}
                 >
                   <div className="min-w-0">
-                    <p className="font-semibold">
-                      {task.tree_code} · {speciesLabel(task.species_polish_name, task.species_cultivar)}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <PlantBadge type={task.tree_type} code={task.tree_code} />
+                      <TaskCategoryChip category={task.category} subcategory={task.subcategory} />
+                    </div>
+                    <p className="mt-1.5 font-semibold">
+                      {speciesLabel(task.species_polish_name, task.species_cultivar)}
+                      <span className="ml-1.5 text-sm font-normal italic text-slate-500">{task.species_latin_name}</span>
                     </p>
-                    <p className="text-sm text-slate-600">
-                      {TASK_CATEGORY_LABELS[task.category]}: {TASK_SUBCATEGORY_LABELS[task.subcategory]} · zgłoszono{' '}
-                      {formatDateTime(task.completed_at)}
-                    </p>
+                    <p className="text-sm text-slate-600">Zgłoszono {formatDateTime(task.completed_at)}</p>
                     {task.contractor_comment && (
                       <p className="mt-1 truncate text-sm text-slate-500">„{task.contractor_comment}”</p>
                     )}

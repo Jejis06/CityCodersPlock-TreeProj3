@@ -10,10 +10,11 @@ import {
   DialogTitle,
 } from '@/components/shared/Dialog';
 import { ErrorMessage } from '@/components/shared/Feedback';
-import { Label, Textarea } from '@/components/shared/FormControls';
+import { PlantBadge, TaskCategoryChip } from '@/components/shared/PlantBadge';
 import { api, assetUrl } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
-import { speciesLabel, TASK_CATEGORY_LABELS, TASK_SUBCATEGORY_LABELS } from '@/types/domain';
+import { speciesLabel } from '@/types/domain';
+import { RejectionReasonField } from './RejectionReasonField';
 import type { QueueTask } from './types';
 
 interface ReviewDialogProps {
@@ -65,11 +66,13 @@ export function ReviewDialog({ task, onClose }: ReviewDialogProps) {
     <Dialog open onOpenChange={(open) => !open && close()}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>
-            {task.tree_code} — {TASK_CATEGORY_LABELS[task.category]}: {TASK_SUBCATEGORY_LABELS[task.subcategory]}
-          </DialogTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <PlantBadge type={task.tree_type} code={task.tree_code} />
+            <TaskCategoryChip category={task.category} subcategory={task.subcategory} />
+          </div>
+          <DialogTitle>{speciesLabel(task.species_polish_name, task.species_cultivar)}</DialogTitle>
           <DialogDescription>
-            {speciesLabel(task.species_polish_name, task.species_cultivar)} · {task.tree_address ?? 'brak adresu'}
+            <span className="italic">{task.species_latin_name}</span> · {task.tree_address ?? 'brak adresu'}
           </DialogDescription>
         </DialogHeader>
 
@@ -91,18 +94,7 @@ export function ReviewDialog({ task, onClose }: ReviewDialogProps) {
             </p>
           )}
 
-          {rejecting && (
-            <div className="space-y-1.5">
-              <Label htmlFor="reject-reason">Powód odrzucenia (wymagany)</Label>
-              <Textarea
-                id="reject-reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Co wykonawca musi poprawić?"
-                autoFocus
-              />
-            </div>
-          )}
+          {rejecting && <RejectionReasonField value={reason} onChange={setReason} />}
           {error && <ErrorMessage>{error}</ErrorMessage>}
         </div>
 
@@ -113,13 +105,13 @@ export function ReviewDialog({ task, onClose }: ReviewDialogProps) {
                 Wstecz
               </Button>
               <Button variant="destructive" disabled={busy || !reason.trim()} onClick={() => void decide('reject')}>
-                <Undo2 /> Odrzuć i zwróć wykonawcy
+                <Undo2 /> Zwróć wykonawcy do poprawy
               </Button>
             </>
           ) : (
             <>
               <Button variant="outline" disabled={busy} onClick={() => setRejecting(true)}>
-                <Undo2 /> Odrzuć i zwróć wykonawcy
+                <Undo2 /> Odrzuć / Do poprawy
               </Button>
               <Button disabled={busy} onClick={() => void decide('approve')}>
                 <CheckCircle2 /> Zatwierdź pracę (wraca do zielonego)

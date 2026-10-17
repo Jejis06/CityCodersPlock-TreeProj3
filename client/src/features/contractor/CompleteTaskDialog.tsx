@@ -10,8 +10,9 @@ import {
 } from '@/components/shared/Dialog';
 import { ErrorMessage, Spinner } from '@/components/shared/Feedback';
 import { Label, Textarea } from '@/components/shared/FormControls';
+import { PlantIdentity, TaskCategoryChip } from '@/components/shared/PlantBadge';
 import { api, assetUrl } from '@/lib/api';
-import { speciesLabel, TASK_CATEGORY_LABELS, TASK_SUBCATEGORY_LABELS } from '@/types/domain';
+import { RejectionFeedbackBox } from './RejectionFeedbackBox';
 import { DEMO_PHOTOS, type ContractorTask } from './types';
 
 interface CompleteTaskDialogProps {
@@ -75,13 +76,18 @@ function CompleteTaskForm({ task, onCompleted }: { task: ContractorTask; onCompl
       </DialogHeader>
 
       <div className="rounded-xl bg-slate-100 p-4">
-        <p className="text-2xl font-bold">{task.tree_code}</p>
-        <p className="text-base text-slate-700">{speciesLabel(task.species_polish_name, task.species_cultivar)}</p>
-        <p className="mt-2 text-lg font-semibold text-emerald-800">
-          {TASK_CATEGORY_LABELS[task.category]}: {TASK_SUBCATEGORY_LABELS[task.subcategory]}
-        </p>
-        {task.description && <p className="mt-1 text-sm text-slate-600">{task.description}</p>}
+        <PlantIdentity
+          size="lg"
+          type={task.tree_type}
+          code={task.tree_code}
+          speciesPolishName={task.species_polish_name}
+          speciesCultivar={task.species_cultivar}
+          speciesLatinName={task.species_latin_name}
+        />
+        <TaskCategoryChip className="mt-3" size="lg" category={task.category} subcategory={task.subcategory} />
+        {task.description && <p className="mt-2 text-sm text-slate-600">{task.description}</p>}
       </div>
+      {task.status === 'rejected' && <RejectionFeedbackBox className="mt-4" task={task} />}
 
       <div className="mt-5 space-y-3">
         <Label>Zdjęcie (wymagane)</Label>

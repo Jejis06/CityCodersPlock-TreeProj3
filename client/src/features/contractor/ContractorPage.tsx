@@ -1,5 +1,5 @@
 import { CheckCircle2, ListTodo, LogOut, Maximize2, Tablet } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router';
 import { useCurrentUser } from '@/app/CurrentUserContext';
@@ -10,15 +10,16 @@ import { TreeMap } from '@/features/map/TreeMap';
 import { useTrees } from '@/features/map/useTrees';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import type { TreeListItem } from '@/types/domain';
+import { CompletedMapLegend } from './CompletedMapLegend';
+import { CompletedTreeMarker } from './CompletedTreeMarker';
 import { CompleteTaskDialog } from './CompleteTaskDialog';
 import { TaskList } from './TaskList';
 import type { ContractorTask } from './types';
+import { useContractorMapFilter, type ContractorTab } from './useContractorMapFilter';
 
 const FRAME_KEY = 'tree-monitor:tablet-frame';
 
-type ContractorTab = 'todo' | 'done';
-
-const TODO_STATUSES = ['assigned', 'rejected'];
 const FOCUS_ZOOM = 20;
 
 /** Centers the map on the selected task's tree (rendered as a TreeMap child). */
@@ -55,13 +56,32 @@ export function ContractorPage() {
     void loadTasks();
   }, [loadTasks]);
 
-  const todoTasks = useMemo(() => tasks.filter((t) => TODO_STATUSES.includes(t.status)), [tasks]);
-  const doneTasks = useMemo(() => tasks.filter((t) => !TODO_STATUSES.includes(t.status)), [tasks]);
+  const { todoTasks, doneTasks, tabTasks, mapTrees, markerVariant, taskForTree } = useContractorMapFilter({
+    tasks,
+    trees,
+    userId: user?.id,
+    tab,
+  });
 
   const selectTask = (task: ContractorTask) => {
     setSelectedTask(task);
     setFlyTarget({ lat: task.tree_latitude, lng: task.tree_longitude, key: `${task.id}-${Date.now()}` });
   };
+
+  const onTreeClick = useCallback(
+    (tree: TreeListItem) => {
+      const task = taskForTree(tree.id);
+      if (task) setSelectedTask(task);
+    },
+    [taskForTree],
+  );
+
+  const switchTab = (next: ContractorTab) => {
+    setTab(next);
+    setSelectedTask(null);
+  };
+
+  const selectedTreeId = selectedTask?.tree_id ?? null;
 
   const onCompleted = () => {
     setExecuting(null);
@@ -115,13 +135,13 @@ export function ContractorPage() {
                   {(
                     [
                       { id: 'todo', label: `Do wykonania (${todoTasks.length})`, icon: ListTodo },
-                      { id: 'done', label: 'Wykonane / W weryfikacji', icon: CheckCircle2 },
+                      { id: 'done', label: `Wykonane / W weryfikacji (${doneTasks.length})`, icon: CheckCircle2 },
                     ] as const
                   ).map(({ id, label, icon: Icon }) => (
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setTab(id)}
+                      onClick={() => switchTab(id)}
                       className={cn(
                         'flex h-16 flex-col items-center justify-center gap-1 rounded-xl text-base font-semibold transition',
                         tab === id
@@ -137,7 +157,7 @@ export function ContractorPage() {
                 <div className="flex-1 overflow-y-auto p-3">
                   {(error || tasksError) && <ErrorMessage className="mb-3">{error ?? tasksError}</ErrorMessage>}
                   <TaskList
-                    tasks={tab === 'todo' ? todoTasks : doneTasks}
+                    tasks={tabTasks}
                     mode={tab}
                     selectedTaskId={selectedTask?.id ?? null}
                     onSelect={selectTask}
@@ -146,15 +166,27 @@ export function ContractorPage() {
                 </div>
               </aside>
 
-              <section className="min-w-0 flex-1">
+              <section className="relative min-w-0 flex-1">
                 <TreeMap
-                  trees={trees}
-                  selectedTreeId={selectedTask?.tree_id ?? null}
+                  trees={markerVariant === 'status' ? mapTrees : []}
+                  selectedTreeId={selectedTreeId}
+                  onTreeClick={onTreeClick}
                   layersCollapsed
                   showCadControl={false}
+                  showLegend={markerVariant === 'status'}
                 >
+                  {markerVariant === 'completed' &&
+                    mapTrees.map((tree) => (
+                      <CompletedTreeMarker
+                        key={tree.id}
+                        tree={tree}
+                        selected={tree.id === selectedTreeId}
+                        onClick={onTreeClick}
+                      />
+                    ))}
                   <FlyToTarget target={flyTarget} />
                 </TreeMap>
+                {markerVariant === 'completed' && <CompletedMapLegend />}
               </section>
             </div>
           </div>

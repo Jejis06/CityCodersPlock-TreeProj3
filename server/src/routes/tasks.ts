@@ -19,15 +19,18 @@ const TASK_LIST_SQL = `
          t.latitude    AS tree_latitude,
          t.longitude   AS tree_longitude,
          t.address     AS tree_address,
+         t.plot_number AS tree_plot_number,
          t.status      AS tree_status,
          s.polish_name AS species_polish_name,
          s.latin_name  AS species_latin_name,
          s.cultivar    AS species_cultivar,
-         lu.full_name  AS locked_by_name
+         lu.full_name  AS locked_by_name,
+         ru.full_name  AS reviewed_by_name
     FROM tasks k
     JOIN trees t ON t.id = k.tree_id
     JOIN species_dictionary s ON s.id = t.species_id
-    LEFT JOIN users lu ON lu.id = k.locked_by`;
+    LEFT JOIN users lu ON lu.id = k.locked_by
+    LEFT JOIN users ru ON ru.id = k.reviewed_by`;
 
 /** Contractors never get contract/funding fields: dropped here and again by the sanitizer. */
 function forRole<T extends object>(row: T, role: Role): T {
