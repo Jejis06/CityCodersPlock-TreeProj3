@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { execute, nowIso, queryAll, queryOne, withTransaction } from '../lib/db.js';
 import { HttpError, getUser } from '../lib/http.js';
+import { LOCK_TIMEOUT_MINUTES, TREE_STATUS_FOR_CATEGORY } from '../lib/constants.js';
 import { sanitizeForRole } from '../lib/sanitize.js';
 import { requireRole } from '../middleware/requireRole.js';
 import type { Role, Task, TaskStatus } from '../types.js';
@@ -93,3 +94,106 @@ function completeTask(req: Request, res: Response): void {
 // `/submit` is the name in the agents.md contract; `/complete` is the contractor-view name. Same handler.
 tasksRouter.post('/:id/complete', requireRole('contractor'), completeTask);
 tasksRouter.post('/:id/submit', requireRole('contractor'), completeTask);
+
+// ---------------------------------------------------------------------------
+// MUTEX + decyzje urzędnika (kolejka zatwierdzeń)
+// ---------------------------------------------------------------------------
+
+const lockExpiredBefore = (): string => new Date(Date.now() - LOCK_TIMEOUT_MINUTES * 60_000).toISOString();
+
+function loadTask(taskId: string): Task {
+  const task = queryOne<Task>(`${TASK_LIST_SQL} WHERE k.id = :id`, { id: taskId });
+  if (!task) throw new HttpError(404, 'Nie znaleziono zadania.');
+  return task;
+}
+
+/** Wymaga, by zadanie czekało na zatwierdzenie i miało ważną blokadę bieżącego użytkownika. */
+function assertOwnsLock(taskId: string, userId: string): Task {
+  const task = loadTask(taskId);
+  if (task.status !== 'pending_approval') throw new HttpError(409, 'Zadanie nie oczekuje na zatwierdzenie.');
+  const lockedByMe = task.locked_by === userId;
+  const lockValid = task.locked_at !== null && task.locked_at >= lockExpiredBefore();
+  if (!lockedByMe || !lockValid) {
+    throw new HttpError(409, 'Nie posiadasz ważnej blokady tego zadania. Otwórz je ponownie.', {
+      locked_by_name: (task as Task & { locked_by_name?: string | null }).locked_by_name ?? null,
+    });
+  }
+  return task;
+}
+
+tasksRouter.post('/:id/lock', requireRole('official'), (req, res) => {
+  const user = getUser(req);
+  const taskId = String(req.params.id);
+  // Jedno atomowe, warunkowe UPDATE — bez wyścigu SELECT→UPDATE.
+  const won = queryOne<{ id: string }>(
+    `UPDATE tasks SET locked_by = :userId, locked_at = :now
+      WHERE id = :taskId AND status = 'pending_approval'
+        AND (locked_by IS NULL OR locked_by = :userId OR locked_at < :expiredBefore)
+      RETURNING id`,
+    { userId: user.id, taskId, now: nowIso(), expiredBefore: lockExpiredBefore() },
+  );
+  const task = loadTask(taskId);
+  if (!won) {
+    if (task.status !== 'pending_approval') throw new HttpError(409, 'Zadanie nie oczekuje na zatwierdzenie.');
+    const holder = (task as Task & { locked_by_name?: string | null }).locked_by_name ?? 'inny urzędnik';
+    throw new HttpError(409, `Zadanie jest w trakcie weryfikacji przez: ${holder}`, {
+      locked_by: task.locked_by,
+      locked_by_name: holder,
+    });
+  }
+  res.json(forRole(task, user.role));
+});
+
+tasksRouter.post('/:id/unlock', requireRole('official'), (req, res) => {
+  const user = getUser(req);
+  const taskId = String(req.params.id);
+  // Zwalniamy wyłącznie własną blokadę (idempotentnie).
+  execute('UPDATE tasks SET locked_by = NULL, locked_at = NULL WHERE id = :taskId AND locked_by = :userId', {
+    taskId,
+    userId: user.id,
+  });
+  res.json(forRole(loadTask(taskId), user.role));
+});
+
+tasksRouter.post('/:id/approve', requireRole('official'), (req, res) => {
+  const user = getUser(req);
+  const taskId = String(req.params.id);
+  const task = withTransaction(() => {
+    const current = assertOwnsLock(taskId, user.id);
+    const now = nowIso();
+    execute(
+      `UPDATE tasks SET status = 'approved', reviewed_by = :userId, reviewed_at = :now,
+              locked_by = NULL, locked_at = NULL
+        WHERE id = :taskId`,
+      { userId: user.id, now, taskId },
+    );
+    execute("UPDATE trees SET status = 'green' WHERE id = :treeId", { treeId: current.tree_id });
+    return loadTask(taskId);
+  });
+  res.json(forRole(task, user.role));
+});
+
+tasksRouter.post('/:id/reject', requireRole('official'), (req, res) => {
+  const user = getUser(req);
+  const taskId = String(req.params.id);
+  const body = (req.body ?? {}) as { reason?: unknown; official_rejection_reason?: unknown };
+  const rawReason = body.reason ?? body.official_rejection_reason;
+  const reason = typeof rawReason === 'string' ? rawReason.trim() : '';
+  if (!reason) throw new HttpError(400, 'Powód odrzucenia jest wymagany.');
+
+  const task = withTransaction(() => {
+    const current = assertOwnsLock(taskId, user.id);
+    execute(
+      `UPDATE tasks SET status = 'rejected', official_rejection_reason = :reason,
+              reviewed_by = :userId, reviewed_at = :now, locked_by = NULL, locked_at = NULL
+        WHERE id = :taskId`,
+      { reason, userId: user.id, now: nowIso(), taskId },
+    );
+    execute('UPDATE trees SET status = :status WHERE id = :treeId', {
+      status: TREE_STATUS_FOR_CATEGORY[current.category],
+      treeId: current.tree_id,
+    });
+    return loadTask(taskId);
+  });
+  res.json(forRole(task, user.role));
+});
