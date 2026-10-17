@@ -12,6 +12,7 @@ import { getUser, HttpError } from '../lib/http.js';
 import { sanitizeForRole } from '../lib/sanitize.js';
 import { nextTreeCode } from '../lib/treeCode.js';
 import { requireRole } from '../middleware/requireRole.js';
+import { seedBdot10k } from '../seeds/bdot10kEnricher.js';
 import type {
   PlantType,
   Role,
@@ -365,6 +366,12 @@ treesRouter.post('/warranty-tasks', requireRole('official'), (req, res) => {
     created_count: taskIds.length,
     task_ids: taskIds,
   });
+});
+
+/** POST /api/trees/seed-bdot10k — import punktów BDOT10k (Płock, TERYT 1462) + wzbogacenie danych; idempotentny. */
+treesRouter.post('/seed-bdot10k', requireRole('official'), (_req, res) => {
+  const summary = seedBdot10k();
+  res.status(summary.inserted_trees > 0 ? 201 : 200).json(summary);
 });
 
 const PUBLIC_TASK_COLUMNS = [

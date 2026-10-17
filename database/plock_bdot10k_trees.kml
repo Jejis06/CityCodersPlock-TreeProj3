@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>drzewa_dbdot10k</name>
+    <description>BDOT10k — punktowe obiekty przyrodnicze (drzewa), powiat m. Płock, TERYT 1462. Układ WGS84 (EPSG:4326), współrzędne w kolejności lng,lat.</description>
+    <Placemark>
+      <name>drzewo_001</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.675992,52.545850,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_002</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.684840,52.549205,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_003</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.681361,52.554547,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_004</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.681572,52.546720,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_005</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.682962,52.549594,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_006</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.679851,52.556973,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_007</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.679687,52.554882,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_008</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.682740,52.554979,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_009</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.688687,52.553063,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_010</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.693825,52.550935,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_011</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.694666,52.550921,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_012</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.694295,52.550400,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_013</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.693516,52.550567,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_014</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.693710,52.549873,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_015</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.708046,52.551172,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_016</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.707509,52.550911,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_017</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.708239,52.550978,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_018</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.710170,52.551157,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_019</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.710869,52.551411,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_020</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.711051,52.552078,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_021</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.713126,52.552268,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_022</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.705999,52.543452,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_023</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.697746,52.541541,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_024</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.698370,52.541381,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_025</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.731204,52.546093,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_026</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.747103,52.543291,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_027</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.744901,52.541694,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_028</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.733285,52.554242,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_029</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.751864,52.540218,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_030</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.750865,52.533144,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_031</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.761853,52.530008,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_032</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.768507,52.540439,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_033</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.764552,52.536575,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_034</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.752083,52.552393,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_035</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.751835,52.552095,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_036</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.765380,52.546686,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_037</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.764112,52.546557,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_038</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.763477,52.546410,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_039</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.766526,52.546811,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_040</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.767873,52.547083,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_041</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.747010,52.545886,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_042</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.747442,52.547035,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_043</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.747389,52.547514,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_044</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.762190,52.542478,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_045</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.763125,52.543906,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_046</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.763912,52.543770,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_047</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.763495,52.543865,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_048</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.761483,52.540961,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_049</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.763053,52.539903,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_050</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.764000,52.539986,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_051</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.672692,52.533838,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_052</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.669854,52.535069,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_053</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.671035,52.533699,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_054</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.671301,52.532817,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_055</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.675560,52.535028,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_056</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.674911,52.535262,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_057</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.673213,52.534355,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_058</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.672549,52.534971,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_059</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.676080,52.535479,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_060</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.676352,52.534688,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_061</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.687697,52.532152,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_062</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.687167,52.531904,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_063</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.736551,52.539607,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_064</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.718930,52.537638,0</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>drzewo_065</name>
+      <ExtendedData><Data name="TERYT"><value>1462</value></Data></ExtendedData>
+      <Point><coordinates>19.719021,52.534703,0</coordinates></Point>
+    </Placemark>
+  </Document>
+</kml>

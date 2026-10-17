@@ -15,5 +15,6 @@ export const config = {
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
   dbPath: path.resolve(serverRoot, process.env.DB_PATH ?? '../database/tree-monitor.db'),
   initSqlPath: path.resolve(serverRoot, '../database/init.sql'),
+  bdot10kKmlPath: path.resolve(serverRoot, '../database/plock_bdot10k_trees.kml'),
   uploadsDir: path.resolve(serverRoot, 'uploads'),
 };

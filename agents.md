@@ -188,6 +188,7 @@ Wszystkie endpointy (poza `/api/health` i `/api/users`) wymagają nagłówka `x-
 | PATCH | `/api/trees/:id` | official | edycja rośliny (zmiana wykonawcy, przesunięcie współrzędnych + adres/działka/geometria, parametry) |
 | DELETE | `/api/trees/:id` | official | usunięcie rośliny wraz z powiązanymi zadaniami (`ON DELETE CASCADE`) |
 | POST | `/api/trees/warranty-tasks` | official | masowe wygenerowanie pakietu zadań kontroli gwarancyjnej (po 3 latach) dla drzew z decyzji |
+| POST | `/api/trees/seed-bdot10k` | official | import punktów BDOT10k Płocka (`database/plock_bdot10k_trees.kml`) + wzbogacenie danych; idempotentny, zwraca podsumowanie |
 | POST | `/api/trees/:id/tasks` | official | zlecenie zadania (przypisanie do wykonawcy drzewa lub domyślnego wykonawcy) |
 | GET  | `/api/tasks?status=a,b` | any | official: wszystkie (kolejka: `pending_approval` + info o blokadzie); contractor: tylko własne |
 | POST | `/api/tasks/:id/submit` | contractor | zgłoszenie wykonania `{ photo_url, comment? }` |
@@ -200,7 +201,7 @@ Wszystkie endpointy (poza `/api/health` i `/api/users`) wymagają nagłówka `x-
 Struktura serwera:
 ```
 server/src/
-  index.ts                 # start: auto-inicjalizacja bazy (gdy brak schematu) + listen
+  index.ts                 # start: auto-inicjalizacja bazy (gdy brak schematu) + seed BDOT10k (gdy < 40 roślin) + listen
   app.ts                   # Express: cors, json, /uploads, montowanie routerów (1 linia na domenę), obsługa błędów
   express.d.ts             # req.user
   types.ts                 # typy domenowe (wspólne, zmiany tylko addytywne)
@@ -212,12 +213,13 @@ server/src/
   lib/treeCode.ts          # nextTreeCode(type, year?) -> D{n}/{rok}, K{n}/{rok}
   middleware/currentUser.ts  # x-user-id -> req.user (401)
   middleware/requireRole.ts  # requireRole('official') (403)
-  scripts/db-reset.ts      # npm run db:reset — wykonuje database/init.sql
+  scripts/db-reset.ts      # npm run db:reset — wykonuje database/init.sql + seed BDOT10k
+  seeds/bdot10kEnricher.ts # Osoba A: parser KML BDOT10k (Płock, TERYT 1462) + deterministyczne wzbogacanie danych
   routes/users.ts          # Branch 0: GET /api/users (bez nagłówka)
   routes/species.ts        # Branch 0: GET /api/species?q=&type=
   routes/geocode.ts        # Osoba A: GET /api/geocode/reverse, /api/geocode/suggest (ULDK + UUG GUGiK)
   routes/uploads.ts        # Branch 0: POST /api/uploads (multer -> server/uploads/)
-  routes/trees.ts          # Osoba A: GET/POST /api/trees, PATCH/DELETE /api/trees/:id, POST /api/trees/warranty-tasks, POST /api/trees/:id/tasks
+  routes/trees.ts          # Osoba A: GET/POST /api/trees, PATCH/DELETE /api/trees/:id, POST /api/trees/warranty-tasks, POST /api/trees/seed-bdot10k, POST /api/trees/:id/tasks
   routes/tasks.ts          # Osoba B (pusty router, już zamontowany pod /api/tasks)
 ```
 
@@ -309,6 +311,22 @@ Każdy element to osobny, wymienialny moduł (Feature-Sliced Design) w `client/s
   - usuwa drzewo z bazy wraz z kaskadowym usunięciem jego zadań (`ON DELETE CASCADE`).
 - `POST /api/trees/warranty-tasks` (`official`):
   - masowo generuje pakiet zadań kontroli gwarancyjnej (`category = 'pielegnacja'`, `subcategory = 'przycinanie'`) dla drzew z opcją `Z DECYZJI: TAK` przed upływem 3 lat od posadzenia oraz zmienia ich status na `'yellow'`.
+
+### Seeder BDOT10k — `server/src/seeds/bdot10kEnricher.ts` + `database/plock_bdot10k_trees.kml`
+Wyizolowany moduł (bez logiki HTTP) zasilający bazę prawdziwymi lokalizacjami drzew z BDOT10k dla Płocka (`TERYT 1462`, zbiór `drzewa_dbdot10k`) i uzupełniający kolumny biznesowe, których BDOT10k nie ma.
+- **Źródło:** `database/plock_bdot10k_trees.kml` (65 punktów: Stare Miasto, Śródmieście, Radziwie, Góry, Podolszyce, Łukasiewicza, Międzytorze, Borowiczki). Ścieżka w `config.bdot10kKmlPath`. Nowe punkty = nowe `<Placemark>` dopisywane **na końcu** pliku (id zależą od pozycji).
+- **Parser** `parseKmlPoints(kml)`: regex po `<Placemark>…<Point><coordinates>lng,lat[,alt]</coordinates>` — w KML **pierwsza liczba to `lng`, druga `lat`**; odrzuca niepoprawne i zduplikowane współrzędne. Bez zależności XML.
+- **Wzbogacanie** `enrichBdot10kPoints(points, now)` — czysta funkcja, deterministyczna (PRNG `mulberry32` ze stałym ziarnem + dokładne kwoty metodą największych reszt, potem tasowanie):
+  - `type`: 80% `tree` / 20% `shrub`; gatunki z puli id słownika (lipy, klony, dęby, platany, brzoza pożyteczna, jarzęby…; krzewy: hortensje, tawuły, berberys, dereń…). Seeder sprawdza zgodność `species_dictionary.type`.
+  - `code`: numeracja **kontynuuje globalną sekwencję prefiksu** (po `MAX` numeru z wszystkich lat), rok w kodzie = `planting_year` (dla `null` bieżący rok), np. `D10/2024`, `D15/2025`, `K2/2025`.
+  - `planting_year`: 2023–2026 + kilka `null` („Nieznany”); `blue` = bieżący rok. `created_at` leży w roku posadzenia.
+  - `status`: 70% `green` / 12% `yellow` / 10% `blue` / 8% `red` (dla 65 punktów: 46/8/6/5).
+  - `is_from_decision` + `decision_number` (`WKS-I.6131.{n}.{rok}.{inicjały}`): ~25% drzew (bez `red`). **6 drzew „alertowych”**: `planting_year` = rok sprzed 3 lat, `created_at = now − 3 lata + 3…28 dni` (np. dla startu 17.10.2026 → 20.10–14.11.2023), więc trafiają do `DecisionWarrantyModal` (okno 31 dni) i `POST /api/trees/warranty-tasks`. Pozostałe drzewa z decyzji mają rok ≥ bieżący − 2 (nie zaśmiecają alertów). `notes` zawiera „decyzja …” (heurystyka listy Osoby B też je rozpozna).
+  - `contract_number` / `contract_scan_url`: wg roku (`UM/ZIEL/12/2026`, `UM/NAS/08/2025`, `UM/UTR/03/2024`, `UM/GWAR/19/2023` — decyzje zawsze GWAR), skany z `client/public/demo/contracts/`; `funding_source`: Budżet Obywatelski Płock / Program Zielony Płock - ORLEN / Fundusz Ochrony Środowiska / Środki bieżące Gminy Płock.
+  - `address` + `plot_number`: osiedle wg reguł prostokątów współrzędnych (`DISTRICTS`), format `"{ulica} {nr}, {osiedle}, Płock"` (zgodny z `streetFromAddress`), działka `146201_1.{obręb}.{nr}[/{n}]`. Adresy/obręby są symulacją, nie danymi z ULDK.
+  - `tasks` (wszystkie `assigned_to = CONTRACTOR_ID`, zgodne z regułami kolorów z §3): `red` → wycinka `assigned` ×3, potem `rejected`; `yellow` → `pending_approval` ×4 (w tym 1× Nasadzanie: Korowanie), potem pielęgnacja `assigned`; `blue` → Posadzenie `assigned` ×4, potem Palikowanie `rejected`; `green` → historia `approved` (co 3. roślina + Posadzenie dla drzew alertowych). Zadania wykonane mają zdjęcie z `/demo/photos/*.svg` i komentarz, odrzucone — powód.
+- **Zapis** `seedBdot10k()`: jedna transakcja; deterministyczne id (`bd010000-1462-4000-8000-{nr}` dla roślin, `bd01aaaa-1462-…` dla zadań) → **idempotentny**: istniejące punkty są pomijane, ponowne wywołanie przywraca tylko usunięte. Zwraca `{ source, teryt, parsed_points, inserted_trees, inserted_tasks, skipped_existing, total_trees, warranty_alert_trees }`.
+- **Wywołania:** `seedBdot10kIfSparse()` przy starcie serwera (`index.ts`) i po `npm run db:reset`, gdy w bazie jest < `BDOT10K_MIN_TREES = 40` roślin (świeży `init.sql` ma 10 → po seedzie 75); ręcznie: `POST /api/trees/seed-bdot10k` (`official`).
 
 ### Warstwy mapy (`mapConfig.ts`, `MapLayers.tsx`, `GeoportalWms.tsx`)
 - Podkłady: **Mapa Uliczna (GUGiK BaseMap, domyślna)** i **Ortofotomapa HD**; TOPO usunięte. `minZoom={10}`, `maxZoom={21}`.
