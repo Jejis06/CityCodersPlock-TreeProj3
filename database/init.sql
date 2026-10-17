@@ -68,7 +68,10 @@ CREATE TABLE trees (
   longitude          REAL NOT NULL CHECK (longitude BETWEEN -180 AND 180),
   address            TEXT,
   plot_number        TEXT,                                 -- nr działki ewidencyjnej
-  planting_year      INTEGER CHECK (planting_year BETWEEN 1800 AND 2100),
+  parcel_geometry    TEXT,                                 -- obrys działki (GeoJSON, opcjonalnie)
+  planting_year      INTEGER CHECK (planting_year IS NULL OR planting_year BETWEEN 1800 AND 2100),
+  is_from_decision   INTEGER NOT NULL DEFAULT 0 CHECK (is_from_decision IN (0, 1)),
+  decision_number    TEXT,                                 -- nr decyzji administracyjnej (opcjonalnie)
   status             TEXT NOT NULL DEFAULT 'green'
                        CHECK (status IN ('green', 'yellow', 'red', 'blue')),
   contractor_id      TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -118,7 +121,7 @@ CREATE TABLE tasks (
   CONSTRAINT tasks_category_subcategory CHECK (
     (category = 'pielegnacja' AND subcategory IN ('nawozenie', 'podlewanie', 'przycinanie')) OR
     (category = 'wycinka'     AND subcategory = 'wycinka') OR
-    (category = 'nasadzanie'  AND subcategory IN ('korowanie', 'palikowanie'))
+    (category = 'nasadzanie'  AND subcategory IN ('posadzenie', 'korowanie', 'palikowanie'))
   ),
   CONSTRAINT tasks_rejection_reason_required CHECK (
     status <> 'rejected' OR length(trim(coalesce(official_rejection_reason, ''))) > 0
@@ -270,8 +273,8 @@ INSERT INTO users (id, full_name, role, device) VALUES
   ('22222222-2222-2222-2222-222222222222', 'Piotr Nowak',   'official',   'desktop'),
   ('33333333-3333-3333-3333-333333333333', 'Jan Zieliński', 'contractor', 'tablet');
 
--- 4.2 Rośliny (8 szt., wszystkie 4 kolory)
---   green:  D1/2026, D6/2026, K1/2026
+-- 4.2 Rośliny (10 szt., wszystkie 4 kolory + 2 drzewa z decyzji przed upływem 3 lat gwarancji)
+--   green:  D1/2026, D6/2026, K1/2026, D8/2026 (z decyzji 2023), D9/2026 (z decyzji 2023)
 --   yellow: D2/2026 (czeka na zatwierdzenie), D3/2026 (czeka na zatwierdzenie)
 --   red:    D4/2026 (wycinka zlecona), D5/2026 (wycinka odrzucona do poprawki)
 --   blue:   D7/2026 (nowe nasadzenie)
@@ -317,6 +320,28 @@ VALUES
   ('aaaaaaaa-0000-0000-0000-000000000008', 'K1/2026', 'shrub', 71, 52.54215, 19.69330,
    'Plac Obrońców Warszawy, Płock', '141301_1.0003.120', 2022, 'green',
    NULL, NULL, NULL, NULL, 'Rabata z tawułą przy fontannie.', '11111111-1111-1111-1111-111111111111');
+
+-- 4.2b Drzewa z decyzji administracyjnych (Z DECYZJI: TAK), którym został < 1 miesiąc do upływu 3 lat od posadzenia
+INSERT INTO trees
+  (id, code, type, species_id, latitude, longitude, address, plot_number, planting_year,
+   is_from_decision, decision_number, status, contractor_id, contract_number, contract_scan_url,
+   funding_source, notes, created_by, created_at, updated_at)
+VALUES
+  ('aaaaaaaa-0000-0000-0000-000000000009', 'D8/2026', 'tree', 28, 52.54420, 19.69140,
+   'ul. Grodzka 14, Płock', '141301_1.0001.188/2', 2023,
+   1, 'WOŚ.6131.44.2023', 'green', '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2023/089', '/demo/contracts/UM-ZZ-2026-011.pdf',
+   'Nasadzenie zastępcze z decyzji administracyjnej', 'Grab pospolity — nasadzenie kompensacyjne z decyzji WOŚ.6131.44.2023 (upływ 3-letniej gwarancji za 11 dni).',
+   '11111111-1111-1111-1111-111111111111',
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 years', '+11 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 years', '+11 days')),
+
+  ('aaaaaaaa-0000-0000-0000-000000000010', 'D9/2026', 'tree', 13, 52.54610, 19.69520,
+   'ul. Henryka Sienkiewicza 32, Płock', '141301_1.0002.094/1', 2023,
+   1, 'WOŚ.6131.58.2023', 'green', '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2023/102', '/demo/contracts/UM-ZZ-2026-014.pdf',
+   'Nasadzenie zastępcze z decyzji administracyjnej', 'Lipa drobnolistna Greenspire — nasadzenie z decyzji WOŚ.6131.58.2023 (upływ 3-letniej gwarancji za 23 dni).',
+   '11111111-1111-1111-1111-111111111111',
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 years', '+23 days'),
+   strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 years', '+23 days'));
 
 -- 4.3 Zadania (6 szt., wszystkie statusy)
 INSERT INTO tasks
@@ -376,9 +401,9 @@ VALUES
    '22222222-2222-2222-2222-222222222222', strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day'),
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-6 days')),
 
-  -- D7: palikowanie nowego nasadzenia — przypisane, do wykonania
+  -- D7: posadzenie nowego nasadzenia — przypisane, do wykonania
   ('bbbbbbbb-0000-0000-0000-000000000006', 'aaaaaaaa-0000-0000-0000-000000000007',
-   'nasadzanie', 'palikowanie', 'assigned',
+   'nasadzanie', 'posadzenie', 'assigned',
    '33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111',
    'Posadzenie gruszy (obwód 14-16 cm) i palikowanie trójnogiem.',
    'UM/ZZ/2026/030', '/demo/contracts/UM-ZZ-2026-030.pdf',

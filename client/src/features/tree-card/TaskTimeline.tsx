@@ -1,5 +1,15 @@
-import { CheckCircle2, Clock, ClipboardList, FileText, HardHat, ImageOff, MessageSquare, XCircle } from 'lucide-react';
-import type { ReactNode } from 'react';
+import {
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  FileText,
+  HardHat,
+  ImageOff,
+  Maximize2,
+  MessageSquare,
+  XCircle,
+} from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { Badge, type BadgeProps } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/Feedback';
 import { assetUrl } from '@/lib/api';
@@ -11,6 +21,7 @@ import {
   type TaskHistoryItem,
   type TaskStatus,
 } from '@/types/domain';
+import { PhotoLightbox, taskToLightboxPhoto, type LightboxPhoto } from './PhotoLightbox';
 
 const TASK_STATUS_STYLE: Record<TaskStatus, { badge: BadgeProps['variant']; dot: string; icon: ReactNode }> = {
   assigned: { badge: 'info', dot: 'bg-blue-600', icon: <ClipboardList /> },
@@ -19,7 +30,16 @@ const TASK_STATUS_STYLE: Record<TaskStatus, { badge: BadgeProps['variant']; dot:
   rejected: { badge: 'destructive', dot: 'bg-red-600', icon: <XCircle /> },
 };
 
-export function TaskTimeline({ tasks }: { tasks: TaskHistoryItem[] }) {
+interface TaskTimelineProps {
+  tasks: TaskHistoryItem[];
+  treeCode?: string;
+  onOpenPhoto?: (photo: LightboxPhoto) => void;
+}
+
+export function TaskTimeline({ tasks, treeCode, onOpenPhoto }: TaskTimelineProps) {
+  const [internalPhoto, setInternalPhoto] = useState<LightboxPhoto | null>(null);
+  const handleOpenPhoto = onOpenPhoto ?? setInternalPhoto;
+
   if (tasks.length === 0) {
     return (
       <EmptyState
@@ -32,17 +52,29 @@ export function TaskTimeline({ tasks }: { tasks: TaskHistoryItem[] }) {
   }
 
   return (
-    <ol className="relative space-y-4 border-l-2 border-slate-200 pl-6">
-      {tasks.map((task) => (
-        <TimelineItem key={task.id} task={task} />
-      ))}
-    </ol>
+    <>
+      <ol className="relative space-y-4 border-l-2 border-slate-200 pl-6">
+        {tasks.map((task) => (
+          <TimelineItem key={task.id} task={task} treeCode={treeCode} onOpenPhoto={handleOpenPhoto} />
+        ))}
+      </ol>
+      {!onOpenPhoto && <PhotoLightbox photo={internalPhoto} onClose={() => setInternalPhoto(null)} />}
+    </>
   );
 }
 
-function TimelineItem({ task }: { task: TaskHistoryItem }) {
+function TimelineItem({
+  task,
+  treeCode,
+  onOpenPhoto,
+}: {
+  task: TaskHistoryItem;
+  treeCode?: string;
+  onOpenPhoto: (photo: LightboxPhoto) => void;
+}) {
   const style = TASK_STATUS_STYLE[task.status];
   const photoUrl = assetUrl(task.contractor_photo_url);
+  const lightboxPhoto = taskToLightboxPhoto(task, treeCode);
 
   return (
     <li className="relative">
@@ -67,7 +99,7 @@ function TimelineItem({ task }: { task: TaskHistoryItem }) {
         </div>
 
         <dl className="mt-2 space-y-1 text-sm">
-          <Row icon={<HardHat />} label="Wykonawca" value={task.assigned_to_name ?? '—'} />
+          <Row icon={<HardHat />} label="Wykonawca" value={task.assigned_to_name ?? 'Nie przypisano'} />
           {task.completed_at && <Row icon={<Clock />} label="Wykonano" value={formatDateTime(task.completed_at)} />}
           {task.reviewed_at && (
             <Row
@@ -83,14 +115,22 @@ function TimelineItem({ task }: { task: TaskHistoryItem }) {
 
         {(task.contractor_comment || photoUrl) && (
           <div className="mt-3 flex gap-3 rounded-lg bg-slate-50 p-2">
-            {photoUrl ? (
-              <a href={photoUrl} target="_blank" rel="noreferrer" className="shrink-0" title="Otwórz zdjęcie">
+            {photoUrl && lightboxPhoto ? (
+              <button
+                type="button"
+                onClick={() => onOpenPhoto(lightboxPhoto)}
+                className="group relative shrink-0 overflow-hidden rounded-md ring-1 ring-slate-200 transition hover:ring-2 hover:ring-emerald-600 focus:outline-none"
+                title="Kliknij, aby powiększyć zdjęcie na pełny ekran"
+              >
                 <img
                   src={photoUrl}
                   alt={`Zdjęcie: ${TASK_SUBCATEGORY_LABELS[task.subcategory]}`}
-                  className="size-20 rounded-md object-cover ring-1 ring-slate-200 transition hover:ring-2 hover:ring-emerald-500"
+                  className="size-20 object-cover transition group-hover:scale-105"
                 />
-              </a>
+                <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 text-white opacity-0 transition group-hover:bg-slate-950/45 group-hover:opacity-100">
+                  <Maximize2 className="size-5 drop-shadow-xs" />
+                </span>
+              </button>
             ) : (
               <div className="flex size-20 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-400">
                 <ImageOff className="size-6" />

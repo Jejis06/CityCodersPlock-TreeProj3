@@ -33,7 +33,7 @@ export function SheetContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+        <DialogPrimitive.Close className="absolute right-4 top-4 z-30 flex size-9 cursor-pointer items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-md ring-1 ring-slate-200/80 backdrop-blur-xs transition hover:bg-white">
           <X className="size-5" />
           <span className="sr-only">Zamknij</span>
         </DialogPrimitive.Close>

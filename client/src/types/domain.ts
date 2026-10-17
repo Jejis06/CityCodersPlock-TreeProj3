@@ -8,6 +8,7 @@ export type TaskSubcategory =
   | 'podlewanie'
   | 'przycinanie'
   | 'wycinka'
+  | 'posadzenie'
   | 'korowanie'
   | 'palikowanie';
 export type TaskStatus = 'assigned' | 'pending_approval' | 'approved' | 'rejected';
@@ -37,7 +38,10 @@ export interface Tree {
   longitude: number;
   address: string | null;
   plot_number: string | null;
+  parcel_geometry?: string | null;
   planting_year: number | null;
+  is_from_decision?: number | boolean;
+  decision_number?: string | null;
   status: TreeStatus;
   contractor_id: string | null;
   contract_number?: string | null;
@@ -121,6 +125,7 @@ export const TASK_SUBCATEGORY_LABELS: Record<TaskSubcategory, string> = {
   podlewanie: 'Podlewanie',
   przycinanie: 'Przycinanie',
   wycinka: 'Wycinka',
+  posadzenie: 'Posadzenie',
   korowanie: 'Korowanie',
   palikowanie: 'Palikowanie',
 };
@@ -128,7 +133,7 @@ export const TASK_SUBCATEGORY_LABELS: Record<TaskSubcategory, string> = {
 export const TASK_SUBCATEGORIES: Record<TaskCategory, TaskSubcategory[]> = {
   pielegnacja: ['nawozenie', 'podlewanie', 'przycinanie'],
   wycinka: ['wycinka'],
-  nasadzanie: ['korowanie', 'palikowanie'],
+  nasadzanie: ['posadzenie', 'korowanie', 'palikowanie'],
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {

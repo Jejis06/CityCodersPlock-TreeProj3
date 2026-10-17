@@ -1,5 +1,6 @@
 import { ClipboardCheck, Lock } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useCurrentUser } from '@/app/CurrentUserContext';
 import { Button } from '@/components/shared/Button';
 import { Card } from '@/components/shared/Card';
@@ -21,20 +22,33 @@ function lockedByOther(task: QueueTask, myId: string): boolean {
 
 export function ApprovalQueuePage() {
   const { user } = useCurrentUser();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { tasks, loading, error, refresh } = useApprovalQueue();
   const [reviewing, setReviewing] = useState<QueueTask | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const open = async (task: QueueTask) => {
-    setActionError(null);
-    try {
-      const locked = await api.post<QueueTask>(`/api/tasks/${task.id}/lock`);
-      setReviewing({ ...task, ...locked });
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Nie udało się zablokować zadania.');
-      void refresh();
-    }
-  };
+  const open = useCallback(
+    async (task: QueueTask) => {
+      setActionError(null);
+      try {
+        const locked = await api.post<QueueTask>(`/api/tasks/${task.id}/lock`);
+        setReviewing({ ...task, ...locked });
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : 'Nie udało się zablokować zadania.');
+        void refresh();
+      }
+    },
+    [refresh],
+  );
+
+  const targetTaskId = searchParams.get('taskId');
+  useEffect(() => {
+    if (!targetTaskId || loading || reviewing) return;
+    const match = tasks.find((t) => t.id === targetTaskId);
+    if (!match) return;
+    setSearchParams({}, { replace: true });
+    void open(match);
+  }, [loading, open, reviewing, setSearchParams, targetTaskId, tasks]);
 
   const closeReview = () => {
     setReviewing(null);

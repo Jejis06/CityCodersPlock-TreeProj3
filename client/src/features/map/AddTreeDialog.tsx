@@ -1,20 +1,27 @@
-import { Hash, Lock, MapPin, Save } from 'lucide-react';
+import { FileCheck2, HardHat, Hash, Lock, MapPin, Save } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/components/shared/Button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/shared/Dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/shared/Dialog';
 import { ErrorMessage, Spinner } from '@/components/shared/Feedback';
 import { Input, Label, Select } from '@/components/shared/FormControls';
 import { StatusDot } from '@/components/shared/StatusDot';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
+  CONTRACTOR_ID,
   PLANT_TYPE_LABELS,
-  TREE_STATUS_META,
-  TREE_STATUSES,
   type PlantType,
   type Species,
   type TreeListItem,
   type TreeStatus,
+  type User,
 } from '@/types/domain';
 import { SpeciesCombobox } from './SpeciesCombobox';
 import type { ReverseGeocodeResult } from './useReverseGeocode';
@@ -32,6 +39,12 @@ interface AddTreeDialogProps {
   /** Parcel + address for `position` (GET /api/geocode/reverse); prefills address and plot number. */
   geocode?: { data: ReverseGeocodeResult | null; loading: boolean; error: string | null };
 }
+
+/** Allowed initial statuses when adding a new plant (Pkt 17: no 'red' / "Do wycinki"). */
+const INITIAL_STATUS_OPTIONS: { value: Extract<TreeStatus, 'green' | 'blue'>; label: string }[] = [
+  { value: 'green', label: 'Istniejące / Zdrowe' },
+  { value: 'blue', label: 'Do posadzenia / nowe nasadzenie' },
+];
 
 export function AddTreeDialog({ position, onClose, onCreated, geocode }: AddTreeDialogProps) {
   return (
@@ -51,7 +64,17 @@ export function AddTreeDialog({ position, onClose, onCreated, geocode }: AddTree
   );
 }
 
-function Field({ label, htmlFor, children, className }: { label: string; htmlFor?: string; children: ReactNode; className?: string }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+  className,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
@@ -76,6 +99,21 @@ function useNextCode(type: PlantType) {
   return code;
 }
 
+function useContractors() {
+  const [contractors, setContractors] = useState<User[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<User[]>('/api/users')
+      .then((users) => !cancelled && setContractors(users.filter((u) => u.role === 'contractor')))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return contractors;
+}
+
 const CURRENT_YEAR = new Date().getFullYear();
 
 function AddTreeForm({
@@ -90,6 +128,7 @@ function AddTreeForm({
   geocode?: AddTreeDialogProps['geocode'];
 }) {
   const id = useId();
+  const contractors = useContractors();
   const [latitude, setLatitude] = useState(position.lat.toFixed(6));
   const [longitude, setLongitude] = useState(position.lng.toFixed(6));
   const [type, setType] = useState<PlantType>('tree');
@@ -97,7 +136,11 @@ function AddTreeForm({
   const [address, setAddress] = useState('');
   const [plotNumber, setPlotNumber] = useState('');
   const [plantingYear, setPlantingYear] = useState(String(CURRENT_YEAR));
-  const [status, setStatus] = useState<TreeStatus>('green');
+  const [unknownYear, setUnknownYear] = useState(false);
+  const [status, setStatus] = useState<'green' | 'blue'>('green');
+  const [contractorId, setContractorId] = useState<string>(CONTRACTOR_ID);
+  const [isFromDecision, setIsFromDecision] = useState(false);
+  const [decisionNumber, setDecisionNumber] = useState('');
   const [contractNumber, setContractNumber] = useState('');
   const [fundingSource, setFundingSource] = useState('');
   const [saving, setSaving] = useState(false);
@@ -119,13 +162,22 @@ function AddTreeForm({
     if (species && species.type !== next) setSpecies(null);
   };
 
+  const handleStatusChange = (nextStatus: 'green' | 'blue') => {
+    setStatus(nextStatus);
+    if (nextStatus === 'blue' && !contractorId) {
+      setContractorId(CONTRACTOR_ID);
+    }
+  };
+
+  const isToBePlanted = status === 'blue';
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return setError('Podaj poprawne współrzędne.');
     if (!species) return setError('Wybierz gatunek ze słownika.');
-    const year = plantingYear.trim() ? Number(plantingYear) : null;
+    const year = unknownYear ? null : plantingYear.trim() ? Number(plantingYear) : null;
     if (year !== null && (!Number.isInteger(year) || year < 1800 || year > 2100)) {
       return setError('Rok posadzenia musi być z zakresu 1800–2100.');
     }
@@ -140,8 +192,13 @@ function AddTreeForm({
         longitude: lng,
         address,
         plot_number: plotNumber,
+        parcel_geometry: geocodeData?.geometry ? JSON.stringify(geocodeData.geometry) : null,
         planting_year: year,
+        is_from_decision: isFromDecision,
+        decision_number: isFromDecision ? decisionNumber : null,
         status,
+        contractor_id: contractorId || (isToBePlanted ? CONTRACTOR_ID : null),
+        assign_planting_task: isToBePlanted,
         contract_number: contractNumber,
         funding_source: fundingSource,
       });
@@ -260,25 +317,110 @@ function AddTreeForm({
           {geocode?.error && <span className="text-xs text-amber-700">{geocode.error} Uzupełnij ręcznie.</span>}
         </Field>
 
-        <Field label="Rok posadzenia" htmlFor={`${id}-year`}>
+        <Field label="Rok posadzenia" htmlFor={`${id}-year`} className="col-span-2 sm:col-span-1">
           <Input
             id={`${id}-year`}
-            type="number"
+            type={unknownYear ? 'text' : 'number'}
             min={1800}
             max={2100}
-            value={plantingYear}
+            disabled={unknownYear}
+            value={unknownYear ? 'Nieznany' : plantingYear}
             onChange={(e) => setPlantingYear(e.target.value)}
           />
+          <label className="mt-1 inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={unknownYear}
+              onChange={(e) => setUnknownYear(e.target.checked)}
+              className="size-4 rounded border-slate-300 accent-emerald-700"
+            />
+            Nieznany rok posadzenia
+          </label>
         </Field>
-        <Field label="Status początkowy" htmlFor={`${id}-status`}>
-          <Select id={`${id}-status`} value={status} onChange={(e) => setStatus(e.target.value as TreeStatus)}>
-            {TREE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {TREE_STATUS_META[s].label}
+
+        <Field label="Status początkowy" htmlFor={`${id}-status`} className="col-span-2 sm:col-span-1">
+          <Select
+            id={`${id}-status`}
+            value={status}
+            onChange={(e) => handleStatusChange(e.target.value as 'green' | 'blue')}
+          >
+            {INITIAL_STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </Select>
+          {isToBePlanted && (
+            <span className="text-xs font-medium text-blue-700">
+              Po zapisie wykonawca automatycznie otrzyma zadanie: <strong>Nasadzanie: Posadzenie</strong>.
+            </span>
+          )}
         </Field>
+
+        <fieldset className="col-span-2 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 sm:grid-cols-2 sm:items-end">
+          <legend className="flex items-center gap-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+            <HardHat className="size-3.5" />
+            Wykonawca odpowiedzialny
+          </legend>
+          <Field label="Przypisany wykonawca" htmlFor={`${id}-contractor`} className="sm:col-span-2">
+            <Select
+              id={`${id}-contractor`}
+              value={contractorId}
+              onChange={(e) => setContractorId(e.target.value)}
+              className="bg-white"
+            >
+              {!isToBePlanted && <option value="">Nie przypisano</option>}
+              {contractors.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </fieldset>
+
+        <fieldset className="col-span-2 grid grid-cols-1 gap-3 rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 sm:grid-cols-2 sm:items-end">
+          <legend className="flex items-center gap-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+            <FileCheck2 className="size-3.5" />
+            Decyzja administracyjna (Gwarancja 3 lata)
+          </legend>
+          <Field label="Z DECYZJI (nasadzenie zastępcze)">
+            <div className="grid h-10 grid-cols-2 items-center gap-1 rounded-lg bg-white p-1 ring-1 ring-slate-200">
+              {(
+                [
+                  { value: false, label: 'Nie' },
+                  { value: true, label: 'Tak (Z DECYZJI)' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  aria-pressed={isFromDecision === opt.value}
+                  onClick={() => setIsFromDecision(opt.value)}
+                  className={cn(
+                    'flex h-8 items-center justify-center rounded-md text-sm font-medium transition-colors',
+                    isFromDecision === opt.value
+                      ? 'bg-emerald-700 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100',
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Numer decyzji (opcjonalnie)" htmlFor={`${id}-decision`}>
+            <Input
+              id={`${id}-decision`}
+              placeholder="np. WOŚ.6131.44.2026"
+              disabled={!isFromDecision}
+              value={isFromDecision ? decisionNumber : ''}
+              onChange={(e) => setDecisionNumber(e.target.value)}
+              className="bg-white"
+            />
+          </Field>
+        </fieldset>
 
         <fieldset className="col-span-2 grid grid-cols-2 gap-4 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
           <legend className="flex items-center gap-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-amber-800">

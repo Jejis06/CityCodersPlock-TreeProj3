@@ -22,7 +22,7 @@ const CATEGORIES = Object.keys(TASK_SUBCATEGORIES) as TaskCategory[];
 const DEFAULT_SUBCATEGORY: Record<TaskCategory, TaskSubcategory> = {
   pielegnacja: 'nawozenie',
   wycinka: 'wycinka',
-  nasadzanie: 'korowanie',
+  nasadzanie: 'posadzenie',
 };
 
 interface TaskCreatorFormProps {

@@ -9,7 +9,7 @@ export const TREE_STATUSES: readonly TreeStatus[] = ['green', 'yellow', 'red', '
 export const TASK_SUBCATEGORIES: Record<TaskCategory, readonly TaskSubcategory[]> = {
   pielegnacja: ['nawozenie', 'podlewanie', 'przycinanie'],
   wycinka: ['wycinka'],
-  nasadzanie: ['korowanie', 'palikowanie'],
+  nasadzanie: ['posadzenie', 'korowanie', 'palikowanie'],
 };
 
 export const TREE_STATUS_FOR_CATEGORY: Record<TaskCategory, TreeStatus> = {

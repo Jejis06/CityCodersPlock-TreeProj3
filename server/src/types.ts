@@ -8,6 +8,7 @@ export type TaskSubcategory =
   | 'podlewanie'
   | 'przycinanie'
   | 'wycinka'
+  | 'posadzenie'
   | 'korowanie'
   | 'palikowanie';
 export type TaskStatus = 'assigned' | 'pending_approval' | 'approved' | 'rejected';
@@ -36,7 +37,10 @@ export interface Tree {
   longitude: number;
   address: string | null;
   plot_number: string | null;
+  parcel_geometry: string | null;
   planting_year: number | null;
+  is_from_decision: number | boolean;
+  decision_number: string | null;
   status: TreeStatus;
   contractor_id: string | null;
   contract_number: string | null;

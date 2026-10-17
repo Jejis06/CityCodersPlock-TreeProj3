@@ -116,9 +116,9 @@ WHERE substr(code, 1, 1) = :prefix AND substr(code, instr(code, '/') + 1) = :yea
 Kategorie i podkategorie zadań (`tasks.category` → `tasks.subcategory`), wymuszone CHECK-iem w bazie:
 - `pielegnacja`: `nawozenie`, `podlewanie`, `przycinanie`
 - `wycinka`: `wycinka`
-- `nasadzanie`: `korowanie`, `palikowanie`
+- `nasadzanie`: `posadzenie`, `korowanie`, `palikowanie`
 
-Etykiety PL do UI: Pielęgnacja / Wycinka / Nasadzanie; Nawożenie / Podlewanie / Przycinanie / Wycinka / Korowanie / Palikowanie.
+Etykiety PL do UI: Pielęgnacja / Wycinka / Nasadzanie; Nawożenie / Podlewanie / Przycinanie / Wycinka / Posadzenie / Korowanie / Palikowanie.
 
 `tasks.status`: `assigned` → `pending_approval` → `approved` | `rejected` (rejected wraca do wykonawcy i może znów przejść w `pending_approval`).
 
@@ -184,8 +184,11 @@ Wszystkie endpointy (poza `/api/health` i `/api/users`) wymagają nagłówka `x-
 | GET  | `/api/trees?species_id=&planting_year=&status=&contractor_id=&task_category=&address=` | any | lista roślin do mapy (sanitizacja dla contractor) |
 | GET  | `/api/trees/next-code?type=tree\|shrub` | official | podgląd kolejnego kodu |
 | GET  | `/api/trees/:id` | any | karta rośliny + gatunek + wykonawca + historia `tasks` |
-| POST | `/api/trees` | official | dodanie rośliny |
-| POST | `/api/trees/:id/tasks` | official | zlecenie zadania (auto-przypisanie do wykonawcy) |
+| POST | `/api/trees` | official | dodanie rośliny (opcjonalnie z wyborem wykonawcy, `assign_planting_task`, `is_from_decision`, `decision_number`, `parcel_geometry` oraz `planting_year = null`) |
+| PATCH | `/api/trees/:id` | official | edycja rośliny (zmiana wykonawcy, przesunięcie współrzędnych + adres/działka/geometria, parametry) |
+| DELETE | `/api/trees/:id` | official | usunięcie rośliny wraz z powiązanymi zadaniami (`ON DELETE CASCADE`) |
+| POST | `/api/trees/warranty-tasks` | official | masowe wygenerowanie pakietu zadań kontroli gwarancyjnej (po 3 latach) dla drzew z decyzji |
+| POST | `/api/trees/:id/tasks` | official | zlecenie zadania (przypisanie do wykonawcy drzewa lub domyślnego wykonawcy) |
 | GET  | `/api/tasks?status=a,b` | any | official: wszystkie (kolejka: `pending_approval` + info o blokadzie); contractor: tylko własne |
 | POST | `/api/tasks/:id/submit` | contractor | zgłoszenie wykonania `{ photo_url, comment? }` |
 | POST | `/api/tasks/:id/lock` | official | MUTEX — przejęcie blokady |
@@ -214,7 +217,7 @@ server/src/
   routes/species.ts        # Branch 0: GET /api/species?q=&type=
   routes/geocode.ts        # Osoba A: GET /api/geocode/reverse, /api/geocode/suggest (ULDK + UUG GUGiK)
   routes/uploads.ts        # Branch 0: POST /api/uploads (multer -> server/uploads/)
-  routes/trees.ts          # Osoba A (Branch 0 ma GET /api/trees z join gatunku i wykonawcy)
+  routes/trees.ts          # Osoba A: GET/POST /api/trees, PATCH/DELETE /api/trees/:id, POST /api/trees/warranty-tasks, POST /api/trees/:id/tasks
   routes/tasks.ts          # Osoba B (pusty router, już zamontowany pod /api/tasks)
 ```
 
@@ -229,7 +232,7 @@ Konwencje serwera:
 
 - `users(id uuid, full_name, role 'official'|'contractor', device 'desktop'|'tablet')`
 - `species_dictionary(id int, type 'tree'|'shrub', polish_name, latin_name, cultivar)` — 100 rekordów z CSV
-- `trees(id uuid, code unique, type, species_id → species_dictionary, latitude, longitude, address, plot_number, planting_year, status, contractor_id → users, contract_number*, contract_scan_url*, funding_source*, notes, created_by, created_at, updated_at)`
+- `trees(id uuid, code unique, type, species_id → species_dictionary, latitude, longitude, address, plot_number, parcel_geometry, planting_year nullable, is_from_decision 0|1, decision_number, status, contractor_id → users, contract_number*, contract_scan_url*, funding_source*, notes, created_by, created_at, updated_at)`
 - `tasks(id uuid, tree_id → trees, category, subcategory, status, assigned_to → users, created_by → users, contract_number*, contract_scan_url*, description, contractor_comment, contractor_photo_url, completed_at, official_rejection_reason, reviewed_by, reviewed_at, locked_by → users, locked_at, created_at, updated_at)`
 - Typy SQLite: `TEXT` (uuid, daty ISO, enumy), `INTEGER`, `REAL` (współrzędne); tabele `STRICT`.
 - Integralność w bazie: CHECK na enumy, parę kategoria/podkategoria, format kodu `D{n}/{rok}`/`K{n}/{rok}`, wymagany powód odrzucenia, spójność `locked_by`/`locked_at`; FK z `ON DELETE`; trigger aktualizujący `updated_at`.
@@ -255,7 +258,7 @@ client/src/
   components/shared/         # Branch 0: Button (size="touch" dla tabletu), Card, Badge, FormControls (Input/Textarea/Select/Label),
                              #           Dialog, Sheet (radix), StatusDot, TabletFrame, Feedback (Spinner/ErrorMessage/EmptyState)
   features/map/              # Osoba A: TreeMap, MapLayers (Geoportal), TreeMarker, MapLegend, mapConfig, useTrees, cad/*
-  features/tree-card/        # Osoba A: TreeCardSheet (karta w Sheet, GET /api/trees/:id), TaskCreatorForm (POST /api/trees/:id/tasks), TaskTimeline
+  features/tree-card/        # Osoba A: TreeCardSheet, TreeHeroHeader, PhotoLightbox, TreeLocationEditor, DecisionWarrantyModal, TaskCreatorForm, TaskTimeline
   features/approval-queue/   # Osoba B: ApprovalQueuePage (placeholder z Branch 0) -> kolejka, MUTEX, approve/reject
   features/contractor/       # Osoba B: ContractorPage (ramka tabletu + mapa z Branch 0) -> lista zadań, zgłaszanie wykonania
 ```
@@ -283,34 +286,57 @@ Zasoby demo (w `client/public/demo/`, serwowane statycznie): `photos/*.svg` (zdj
 
 ## Architektura: Moduły Osoby A (GIS & Karta Drzewa)
 
-Każdy element to osobny, wymienialny moduł (Feature-Sliced Design) w `client/src/features/map/` + osobny router serwera. Nie dopisujemy logiki do `TreeMap.tsx` / `OfficialMapPage.tsx` poza montowaniem modułów.
+Każdy element to osobny, wymienialny moduł (Feature-Sliced Design) w `client/src/features/map/` oraz `client/src/features/tree-card/` + osobne routery serwera (`geocode.ts`, `trees.ts`). Nie dopisujemy logiki do `TreeMap.tsx` / `OfficialMapPage.tsx` poza montowaniem modułów.
 
-### Backend — `server/src/routes/geocode.ts` (montowany w `app.ts`, rola `official`)
-- `GET /api/geocode/reverse?lat=&lng=` → `{ lat, lng, address, street, house_number, plot_number, parcel_number, parcel_label, precinct, commune, geometry }`.
-  - działka: GUGiK **ULDK** `GetParcelByXY` (`result=teryt,parcel,region,commune,geom_wkt`, `srid=4326`), `geom_wkt` konwertowany na GeoJSON `Polygon`/`MultiPolygon` (WGS84, kolejność lng,lat); `plot_number` = pełny identyfikator ewidencyjny (np. `146201_1.0008.512/9`), `parcel_label` = `dz. 512/9`,
-  - adres: GUGiK **Usługa Lokalizacji (UUG)** `GetAddressReverse` (ulica + numer, Płock),
-  - jedna z usług może paść — zwracamy część wyniku; obie padły → `502`. Współrzędne poza obszarem Płocka → `400`.
-- `GET /api/geocode/suggest?q=` (min. 2 znaki) → lista `{ label, detail, source: 'trees'|'gugik', filter_value, lat, lng }`: najpierw ulice z tabeli `trees` (`filter_value` = ulica do filtra), potem adresy UUG `GetAddress`.
-- `GET /api/trees?...&address=` — dodatkowy filtr `LIKE` po adresie (ulicy).
+### Zmiany w schemacie bazy danych (`database/init.sql` — tabela `trees`)
+- `planting_year`: kolumna `INTEGER` jest nullable (`CHECK (planting_year IS NULL OR planting_year BETWEEN 1800 AND 2100)`); gdy w formularzu zaznaczono „Nieznany rok posadzenia”, zapisywana jest wartość `NULL` (w UI wyświetlana jako `"Nieznany"`).
+- `is_from_decision`: `INTEGER NOT NULL DEFAULT 0 CHECK (is_from_decision IN (0, 1))` — flaga określająca, czy roślina pochodzi z decyzji administracyjnej (nasadzenie zastępcze/kompensacyjne objęte 3-letnią gwarancją).
+- `decision_number`: `TEXT` (opcjonalny numer decyzji administracyjnej, np. `WOŚ.6131.44.2023`).
+- `parcel_geometry`: `TEXT` (zserializowany GeoJSON obrysu działki ewidencyjnej pobrany z ULDK, opcjonalny).
+- Seed (`database/init.sql`): dodano 2 drzewa z opcją `is_from_decision = 1` (`D8/2026`, `D9/2026`, posadzone w 2023 r., którym zostało odpowiednio 11 i 23 dni do upływu 3 lat od posadzenia), aby od razu wyświetlały się w panelu alertów 3-letnich decyzji.
+
+### Backend — `server/src/routes/geocode.ts` i `server/src/routes/trees.ts`
+- `GET /api/geocode/reverse?lat=&lng=` → `{ lat, lng, address, street, house_number, plot_number, parcel_number, parcel_label, precinct, commune, geometry }` (ULDK `GetParcelByXY` + UUG `GetAddressReverse`).
+- `GET /api/geocode/suggest?q=` (min. 2 znaki) → podpowiedzi ulic z tabeli `trees` + adresów z GUGiK UUG `GetAddress`.
+- `POST /api/trees` (`official`):
+  - odrzuca status początkowy `'red'` („Do wycinki”) — dozwolone wyłącznie `'green'` („Istniejące / Zdrowe”) lub `'blue'` („Do posadzenia”),
+  - obsługuje `planting_year: null` („Nieznany rok posadzenia”), `is_from_decision`, `decision_number`, `parcel_geometry`, `contractor_id`,
+  - gdy wybrano status początkowy `'blue'` („Do posadzenia / nowe nasadzenie”, lub `assign_planting_task: true`), w tej samej transakcji automatycznie przypisuje wybranego wykonawcę i tworzy zadanie z kategorii `'nasadzanie'` z podkategorią `'posadzenie'` (**Nasadzanie: Posadzenie**).
+- `PATCH /api/trees/:id` (`official`):
+  - częściowa aktualizacja drzewa: zmiana/przepisanie wykonawcy (`contractor_id` — aktualizuje `assigned_to` na otwartych zadaniach `assigned`/`rejected` tego drzewa, w tym ustawia `assigned_to = NULL` przy wybraniu „Nie przypisano”), aktualizacja współrzędnych `latitude`/`longitude` wraz z adresem (`address`), numerem działki (`plot_number`) i geometrią (`parcel_geometry`), edycja roku, decyzji, statusu i notatek.
+- `DELETE /api/trees/:id` (`official`):
+  - usuwa drzewo z bazy wraz z kaskadowym usunięciem jego zadań (`ON DELETE CASCADE`).
+- `POST /api/trees/warranty-tasks` (`official`):
+  - masowo generuje pakiet zadań kontroli gwarancyjnej (`category = 'pielegnacja'`, `subcategory = 'przycinanie'`) dla drzew z opcją `Z DECYZJI: TAK` przed upływem 3 lat od posadzenia oraz zmienia ich status na `'yellow'`.
 
 ### Warstwy mapy (`mapConfig.ts`, `MapLayers.tsx`, `GeoportalWms.tsx`)
 - Podkłady: **Mapa Uliczna (GUGiK BaseMap, domyślna)** i **Ortofotomapa HD**; TOPO usunięte. `minZoom={10}`, `maxZoom={21}`.
 - Nakładki: KIEG (działki/budynki), **KIUT** (uzbrojenie terenu), CAD lokalny.
 - `GeoportalWms.tsx` — wspólny `WMSTileLayer` z ponawianiem kafli (`tileerror`), reużywany przez moduły.
 
-### Komponenty klienta (`client/src/features/map/`)
+### Komponenty klienta — Mapa (`client/src/features/map/`)
 | Plik | Rola |
 |------|------|
 | `KiutOverlay.tsx` | warstwa KIUT w `LayersControl` + przycisk "Uzbrojenie terenu: Rury / Gaz / Prąd" + legenda (żółty = gaz, niebieski = wodociąg, brązowy = kanalizacja, czerwony = prąd); renderowany wewnątrz `<LayersControl>` |
-| `ParcelHighlighter.tsx` | rysuje obrys działki (GeoJSON) — `geometry` z `/api/geocode/reverse` |
+| `ParcelHighlighter.tsx` | rysuje obrys działki (GeoJSON) — `geometry` z `/api/geocode/reverse` lub zapisanego `parcel_geometry` |
 | `useReverseGeocode.ts` | hook + typy odpowiedzi geokodera (cache po współrzędnych) |
 | `ViewportStatsWidget.tsx` | pływający licznik w lewym dolnym rogu: "W widoku" (`map.getBounds()`) vs "Wg filtra" |
 | `AddressAutocomplete.tsx` | "Szukaj po ulicy / adresie" (na górze filtrów); wybór → filtr `address` + `flyTo` |
 | `MapFlyTo.tsx` | `flyTo` na `FlyTarget` (z `nonce`) |
 | `MapFiltersPanel.tsx` | komplet filtrów w lewym panelu: adres, status, typ, gatunek, rok, kategoria zadań, wykonawca |
-| `MapFilterBar.tsx` | odchudzony pasek nad mapą (licznik + "Dodaj roślinę") |
+| `MapFilterBar.tsx` | pasek nad mapą: licznik + przycisk **"Alerty Decyzji (3 lata)"** z licznikiem + przycisk **"Dodaj roślinę"** |
+| `AddTreeDialog.tsx` | formularz dodawania rośliny: status początkowy tylko `green`/`blue` (bez `red`), checkbox „Nieznany rok posadzenia” (`null`), automatyczne zlecenie zadania **Nasadzanie: Posadzenie** dla wybranego wykonawcy przy statusie „Do posadzenia” (`blue`), sekcja „Z DECYZJI” + nr decyzji |
 
-Przepływ: klik w mapę (tryb dodawania) lub wybór drzewa → `OfficialMapPage` pobiera `useReverseGeocode(punkt)` → `ParcelHighlighter` podświetla działkę, a `AddTreeDialog` (prop `geocode`) uzupełnia adres i nr działki (nie nadpisuje ręcznych zmian). Lewy panel nie zawiera już sekcji "Karta ewidencyjna" (karta otwiera się w Sheet po kliknięciu drzewa).
+### Komponenty klienta — Karta Drzewa (`client/src/features/tree-card/`)
+| Plik | Rola |
+|------|------|
+| `TreeCardSheet.tsx` | główny kontener Karty Ewidencyjnej w `Sheet`; wyświetla na górze szybki przycisk przejścia do Kolejki Zatwierdzeń (`/official/queue?taskId=...`), jeśli drzewo ma zadanie `pending_approval` |
+| `TreeHeroHeader.tsx` | nagłówek Karty Drzewa; jeśli drzewo ma w historii zatwierdzone zadanie (`approved`) ze zdjęciem, najnowsze zatwierdzone zdjęcie staje się tłem nagłówka (hero image z ciemnym gradientem pod białym tekstem i przyciskiem powiększenia) |
+| `PhotoLightbox.tsx` | pełnoekranowy modal (Lightbox) do powiększania zdjęć z historii prac oraz nagłówka karty wraz z datą wykonania, wykonawcą i opisem |
+| `TreeLocationEditor.tsx` | moduł edycji dla Urzędnika w Karcie Drzewa: dropdown „Zmień wykonawcę” (`PATCH /api/trees/:id`), przycisk „Przesuń punkt na mapie” (wskazanie nowego punktu na mapie → automatyczne pobranie nowego adresu i działki z `/api/geocode/reverse` + `PATCH /api/trees/:id`) oraz przycisk „Usuń drzewo” z modalem potwierdzenia (`DELETE /api/trees/:id`) |
+| `DecisionWarrantyModal.tsx` | modal otwierany przyciskiem „Alerty Decyzji (3 lata)” na pasku Urzędnika: lista drzew z opcją `Z DECYZJI: TAK`, którym został miesiąc (lub mniej) do upływu 3 lat od posadzenia, podgląd i wysyłka przypomnienia e-mail oraz przycisk „Wygeneruj pakiet zadań kontrolnych dla wykonawców” (`POST /api/trees/warranty-tasks`) |
+| `TaskCreatorForm.tsx` | formularz zlecania nowego zadania dla wybranego drzewa (`POST /api/trees/:id/tasks`) |
+| `TaskTimeline.tsx` | oś czasu historii prac z klikalnymi miniaturami zdjęć otwierającymi `PhotoLightbox` |
 
 ---
 
