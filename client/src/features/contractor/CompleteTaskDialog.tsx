@@ -11,6 +11,7 @@ import {
 import { ErrorMessage, Spinner } from '@/components/shared/Feedback';
 import { Label, Textarea } from '@/components/shared/FormControls';
 import { PlantIdentity, TaskCategoryChip } from '@/components/shared/PlantBadge';
+import { dismissKeyboardAndReset } from '@/hooks/useIosKeyboardFix';
 import { api, assetUrl } from '@/lib/api';
 import { RejectionFeedbackBox } from './RejectionFeedbackBox';
 import { DEMO_PHOTOS, type ContractorTask } from './types';
@@ -22,9 +23,14 @@ interface CompleteTaskDialogProps {
 }
 
 export function CompleteTaskDialog({ task, onClose, onCompleted }: CompleteTaskDialogProps) {
+  const close = () => {
+    dismissKeyboardAndReset();
+    onClose();
+  };
   return (
-    <Dialog open={task !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl">
+    <Dialog open={task !== null} onOpenChange={(open) => !open && close()}>
+      {/* Anchored to the top (not vertically centered) so the iPad on-screen keyboard never pushes it off-screen. */}
+      <DialogContent className="top-[3dvh] max-h-[80dvh] max-w-xl -translate-y-0 overflow-y-auto">
         {task && <CompleteTaskForm key={task.id} task={task} onCompleted={onCompleted} />}
       </DialogContent>
     </Dialog>
@@ -54,6 +60,7 @@ function CompleteTaskForm({ task, onCompleted }: { task: ContractorTask; onCompl
 
   const submit = async () => {
     if (!photoUrl) return;
+    dismissKeyboardAndReset();
     setSubmitting(true);
     setError(null);
     try {
@@ -61,6 +68,7 @@ function CompleteTaskForm({ task, onCompleted }: { task: ContractorTask; onCompl
         photo_url: photoUrl,
         comment: comment.trim() || undefined,
       });
+      dismissKeyboardAndReset();
       onCompleted();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Nie udało się zgłosić wykonania.');

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { ApprovalQueuePage } from '@/features/approval-queue/ApprovalQueuePage';
 import { ContractorPage } from '@/features/contractor/ContractorPage';
+import { IpadModeRedirect, IpadStandaloneApp } from '@/features/contractor/IpadStandaloneApp';
 import { TreesListAndExportView } from '@/features/export-and-list/TreesListAndExportView';
 import { CurrentUserProvider } from './CurrentUserContext';
 import { OfficialLayout } from './layouts/OfficialLayout';
@@ -13,7 +14,15 @@ export function App() {
     <CurrentUserProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<RoleSelectPage />} />
+          <Route
+            path="/"
+            element={
+              <IpadModeRedirect>
+                <RoleSelectPage />
+              </IpadModeRedirect>
+            }
+          />
+          <Route path="/ipad" element={<IpadStandaloneApp />} />
           <Route
             path="/official"
             element={

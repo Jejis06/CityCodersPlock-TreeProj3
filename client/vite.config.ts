@@ -17,6 +17,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true, // reachable from a real iPad on the LAN: http://<IP>:5173/ipad
     proxy: {
       '/api': apiTarget,
       '/uploads': apiTarget,

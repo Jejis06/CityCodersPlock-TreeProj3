@@ -1,5 +1,5 @@
 import { CheckCircle2, ListTodo, LogOut, Maximize2, Tablet } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router';
 import { useCurrentUser } from '@/app/CurrentUserContext';
@@ -8,6 +8,7 @@ import { ErrorMessage } from '@/components/shared/Feedback';
 import { TabletFrame } from '@/components/shared/TabletFrame';
 import { TreeMap } from '@/features/map/TreeMap';
 import { useTrees } from '@/features/map/useTrees';
+import { useIosKeyboardFix, useLeafletViewportRestore } from '@/hooks/useIosKeyboardFix';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { TreeListItem } from '@/types/domain';
@@ -31,7 +32,21 @@ function FlyToTarget({ target }: { target: { lat: number; lng: number; key: stri
   return null;
 }
 
-export function ContractorPage() {
+/** Lives inside <TreeMap>: re-measures Leaflet after the iPad keyboard closes. */
+function ViewportRestoreSync() {
+  useLeafletViewportRestore();
+  return null;
+}
+
+interface ContractorPageProps {
+  /** true = real device (`/ipad`): full screen, no simulator bar, no account switching. */
+  standalone?: boolean;
+  /** Header content used in standalone mode (replaces title + "Zmień konto"). */
+  header?: ReactNode;
+}
+
+export function ContractorPage({ standalone = false, header }: ContractorPageProps = {}) {
+  useIosKeyboardFix();
   const { user, logout } = useCurrentUser();
   const navigate = useNavigate();
   const { trees, error, reload: reloadTrees } = useTrees();
@@ -103,30 +118,41 @@ export function ContractorPage() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-slate-800">
-      <div className="flex h-12 shrink-0 items-center gap-3 px-4 text-sm text-slate-200">
-        <Tablet className="size-4" />
-        <span className="font-medium">Symulator tabletu wykonawcy</span>
-        <div className="ml-auto flex gap-2">
-          <Button size="sm" variant="secondary" onClick={toggleFrame}>
-            {framed ? <Maximize2 /> : <Tablet />}
-            {framed ? 'Pełny ekran' : 'Widok Tabletu (Ramka iPad)'}
-          </Button>
+    <div className={cn('flex h-full flex-col', standalone ? 'bg-slate-900' : 'bg-slate-800')}>
+      {!standalone && (
+        <div className="flex h-12 shrink-0 items-center gap-3 px-4 text-sm text-slate-200">
+          <Tablet className="size-4" />
+          <span className="font-medium">Symulator tabletu wykonawcy</span>
+          <div className="ml-auto flex gap-2">
+            <Button size="sm" variant="secondary" onClick={toggleFrame}>
+              {framed ? <Maximize2 /> : <Tablet />}
+              {framed ? 'Pełny ekran' : 'Widok Tabletu (Ramka iPad)'}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="min-h-0 flex-1">
-        <TabletFrame framed={framed}>
+        <TabletFrame framed={standalone ? false : framed}>
           <div className="flex h-full flex-col">
-            <header className="flex h-16 shrink-0 items-center gap-4 bg-emerald-800 px-5 text-white">
-              <div>
-                <p className="text-lg font-bold leading-tight">Tree Monitor · Teren</p>
-                <p className="text-sm text-emerald-100">{user?.full_name} · Wykonawca</p>
-              </div>
-              <Button size="lg" variant="secondary" className="ml-auto" onClick={switchAccount}>
-                <LogOut />
-                Zmień konto
-              </Button>
+            <header
+              className="flex h-16 shrink-0 items-center gap-4 bg-emerald-800 px-5 text-white"
+              style={standalone ? { paddingTop: 'env(safe-area-inset-top)', height: 'calc(4rem + env(safe-area-inset-top))' } : undefined}
+            >
+              {standalone ? (
+                header
+              ) : (
+                <>
+                  <div>
+                    <p className="text-lg font-bold leading-tight">Tree Monitor · Teren</p>
+                    <p className="text-sm text-emerald-100">{user?.full_name} · Wykonawca</p>
+                  </div>
+                  <Button size="lg" variant="secondary" className="ml-auto" onClick={switchAccount}>
+                    <LogOut />
+                    Zmień konto
+                  </Button>
+                </>
+              )}
             </header>
 
             <div className="flex min-h-0 flex-1">
@@ -185,6 +211,7 @@ export function ContractorPage() {
                       />
                     ))}
                   <FlyToTarget target={flyTarget} />
+                  <ViewportRestoreSync />
                 </TreeMap>
                 {markerVariant === 'completed' && <CompletedMapLegend />}
               </section>

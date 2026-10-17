@@ -445,3 +445,17 @@ client/src/features/export-and-list/
   formats/                     # exportTypes, exportColumns, zip, xlsx, dxf, shapefile, pdfShared, pdfReport, mapAreaPdf
   lib/                         # geodesy (PL-2000/7, PUWG 1992), saveFile (showSaveFilePicker + fallback)
 ```
+
+### Tryb iPad (Web-App) — `/ipad` (branch `feat/ipad-standalone-webapp-and-keyboard-fix`)
+Widok Wykonawcy jako natywnie wyglądająca aplikacja na prawdziwym iPadzie (jury), bez możliwości przelogowania.
+
+- **Endpoint `/ipad`** (`http://<IP_SERWERA>:5173/ipad`; uruchom `npm run dev` z hostem sieciowym, iPad w tej samej sieci) — `features/contractor/IpadStandaloneApp.tsx`. Wejście automatycznie i na sztywno loguje `Jan Zieliński` (`33333333-3333-3333-3333-333333333333`, `contractor`, `device: tablet`; nadpisuje użytkownika z `sessionStorage`) i renderuje `<ContractorPage standalone header={<IpadHeader />} />` w trybie pełnoekranowym (bez `TabletFrame`).
+- **`?mode=ipad`**: `IpadModeRedirect` (ten sam plik) opakowuje trasę `/` w `App.tsx` — `/?mode=ipad` przekierowuje na `/ipad`.
+- **Ukryte elementy** w trybie `standalone`: pasek „Symulator tabletu wykonawcy”, przełącznik „Ramka iPad / Pełny ekran”, „Zmień konto”/wylogowanie. Zamiast nich nagłówek: logo + `Tree Monitor Field • Płock`, firma `Eko-Ogrody Płock` i zielona kropka „Połączono na żywo (iPadOS)”. Nagłówek uwzględnia `env(safe-area-inset-top)` (status bar `black-translucent`). `ContractorPage` bez `standalone` (trasa `/contractor`) działa jak dotąd — symulator na desktopie.
+- **PWA / „Dodaj do ekranu początkowego”**: `client/index.html` — meta `viewport` (`maximum-scale=1.0, user-scalable=no, viewport-fit=cover`), `apple-mobile-web-app-capable`, `mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style=black-translucent`, `apple-mobile-web-app-title=TreeMonitor`, `<link rel="manifest">`. `client/public/manifest.json`: `display: standalone`, `start_url: /ipad`, `background_color: #0f172a`, `theme_color: #059669`. Ikona: `favicon.svg` (iOS preferuje PNG `apple-touch-icon` 180×180 — do dodania w razie potrzeby).
+- **Hook `client/src/hooks/useIosKeyboardFix.ts`** (naprawa przesuniętego ekranu / białego paska po schowaniu klawiatury):
+  - `useIosKeyboardFix()` (wołany w `ContractorPage`): dodaje klasę `app-locked` na `<html>` (CSS w `index.css`: `html/body/#root` → `height: 100dvh; width: 100vw; overflow: hidden; position: fixed; inset: 0; background #0f172a; overscroll-behavior: none` — zakres tylko widoki wykonawcy, żeby nie zablokować przewijania stron urzędnika), nasłuchuje `focusout` pól `input/textarea/select`, `window.visualViewport` `resize` (klawiatura się chowa) oraz `orientationchange` → `resetIosViewport()` (natychmiast i ponownie po 350 ms, po animacji klawiatury).
+  - `resetIosViewport()`: `window.scrollTo({ top: 0, left: 0, behavior: 'instant' })` + wysyła zdarzenie `tree-monitor:viewport-restored`. `useLeafletViewportRestore()` (użyty w `ViewportRestoreSync` jako dziecko `<TreeMap>`) reaguje wywołaniem `map.invalidateSize()`.
+  - `dismissKeyboardAndReset()`: `document.activeElement.blur()` + reset viewportu — wołane w `CompleteTaskDialog` przed „Zgłoś wykonanie”, po sukcesie i przy zamknięciu modala.
+  - `index.css`: na urządzeniach dotykowych (`@media (pointer: coarse)`) `input, textarea, select { font-size: 16px }` — iPadOS Safari nie robi auto-zoomu przy focusie.
+- **Modal „Wykonaj zadanie”** (`CompleteTaskDialog.tsx`): przyklejony do góry (`top-[3dvh] -translate-y-0`), `max-h-[80dvh] overflow-y-auto`, więc klawiatura ekranowa nie wypycha go poza ekran.

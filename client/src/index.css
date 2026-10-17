@@ -14,6 +14,32 @@ body,
   height: 100%;
 }
 
+/*
+ * iPadOS keyboard fix: shell locked to the screen. Class is toggled by useIosKeyboardFix()
+ * (contractor views only), so scrolling pages of the official view keep working.
+ */
+html.app-locked,
+html.app-locked body,
+html.app-locked #root {
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  background-color: #0f172a;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Touch devices: >=16px in fields stops iPadOS Safari from auto-zooming on focus (unlayered => beats text-sm). */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 body {
   @apply bg-slate-100 text-slate-900 antialiased;
 }
