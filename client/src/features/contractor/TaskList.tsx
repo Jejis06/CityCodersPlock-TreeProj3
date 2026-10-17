@@ -71,12 +71,8 @@ export function TaskList({ tasks, mode, selectedTaskId, onSelect, onExecute }: T
               {mode === 'todo' && (
                 <Button
                   size="touch"
-                  variant="default"
-                  className={cn(
-                    'mt-3 w-full',
-                    rejected &&
-                      'bg-indigo-600 font-semibold text-white shadow-md hover:bg-indigo-700 focus-visible:ring-indigo-500',
-                  )}
+                  variant={rejected ? 'destructive' : 'default'}
+                  className={cn('mt-3 w-full', rejected && 'font-semibold shadow-md')}
                   onClick={(e) => {
                     e.stopPropagation();
                     onExecute(task);

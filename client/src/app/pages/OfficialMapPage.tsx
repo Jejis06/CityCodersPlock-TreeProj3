@@ -27,7 +27,6 @@ import {
 } from '@/features/tree-card/DecisionWarrantyModal';
 import { TreeCardSheet } from '@/features/tree-card/TreeCardSheet';
 import type { RelocateTarget } from '@/features/tree-card/TreeLocationEditor';
-import { cn } from '@/lib/utils';
 import { TREE_STATUS_META, TREE_STATUSES, type TreeListItem } from '@/types/domain';
 
 const SUCCESS_NOTICE_MS = 4000;
@@ -175,8 +174,6 @@ export function OfficialMapPage() {
     void filtered.reload();
   };
 
-  const rightDrawerOpen = (cursorMode === 'single' && selectedId !== null) || (isMultiMode && selectedTrees.length > 0);
-
   return (
     <div className="flex h-full">
       <aside className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-r border-slate-200 bg-slate-50 p-4">
@@ -229,7 +226,15 @@ export function OfficialMapPage() {
           }}
           decisionAlertCount={expiringDecisionTrees.length}
           onOpenDecisionAlerts={() => setWarrantyModalOpen(true)}
-        />
+        >
+          <CursorModeToolbar
+            mode={cursorMode}
+            onModeChange={handleCursorModeChange}
+            selectedCount={selectedTrees.length}
+            onClearSelection={handleClearSelection}
+            disabled={addMode || relocateMode}
+          />
+        </MapFilterBar>
 
         <div className="relative min-h-0 flex-1">
           <TreeMap
@@ -254,9 +259,9 @@ export function OfficialMapPage() {
                   }
                 : relocateMode
                   ? (position) => {
-                       setRelocateMode(false);
-                       setRelocateTarget({ lat: position.lat, lng: position.lng, nonce: Date.now() });
-                     }
+                      setRelocateMode(false);
+                      setRelocateTarget({ lat: position.lat, lng: position.lng, nonce: Date.now() });
+                    }
                   : undefined
             }
           >
@@ -269,19 +274,6 @@ export function OfficialMapPage() {
               onSelectTreesInBox={handleSelectTreesInBox}
             />
           </TreeMap>
-
-          {!addMode && !relocateMode && (
-            <CursorModeToolbar
-              mode={cursorMode}
-              onModeChange={handleCursorModeChange}
-              selectedCount={selectedTrees.length}
-              onClearSelection={handleClearSelection}
-              className={cn(
-                'absolute top-3 transition-all duration-200',
-                rightDrawerOpen ? 'left-[360px]' : 'left-1/2 -translate-x-1/2',
-              )}
-            />
-          )}
 
           {addMode && (
             <div className="absolute left-1/2 top-3 z-[1001] flex -translate-x-1/2 items-center gap-3 rounded-full bg-emerald-800 py-2 pl-4 pr-2 text-sm font-medium text-white shadow-xl">
@@ -318,7 +310,7 @@ export function OfficialMapPage() {
           {createdCode && !addMode && !relocateMode && (
             <div
               role="status"
-              className="absolute left-1/2 top-16 z-[1001] flex -translate-x-1/2 items-center gap-2 rounded-full bg-white py-2 pl-3 pr-4 text-sm font-medium text-emerald-800 shadow-xl ring-1 ring-emerald-200"
+              className="absolute left-1/2 top-3 z-[1001] flex -translate-x-1/2 items-center gap-2 rounded-full bg-white py-2 pl-3 pr-4 text-sm font-medium text-emerald-800 shadow-xl ring-1 ring-emerald-200"
             >
               <CheckCircle2 className="size-4 text-emerald-600" />
               Dodano roślinę <span className="font-bold">{createdCode}</span> do ewidencji
