@@ -1,0 +1,111 @@
+.leaflet-container {
+  background: #1e293b;
+  font-family: inherit;
+}
+
+.tree-map--add-mode .leaflet-container {
+  cursor: crosshair;
+}
+
+.leaflet-control-layers {
+  border-radius: 0.75rem !important;
+  font-size: 13px;
+}
+
+.leaflet-control-layers-expanded {
+  padding: 0.5rem 0.75rem;
+}
+
+/* ---- Tree markers: high contrast on dark orthophoto ---- */
+
+.tree-marker-icon {
+  background: transparent;
+  border: 0;
+}
+
+.tree-marker {
+  --tree-color: #16a34a;
+  position: relative;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.tree-marker--green { --tree-color: #16a34a; }
+.tree-marker--yellow { --tree-color: #f59e0b; }
+.tree-marker--red { --tree-color: #dc2626; }
+.tree-marker--blue { --tree-color: #2563eb; }
+
+.tree-marker__dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--tree-color);
+  border: 3px solid #fff;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.6),
+    0 3px 8px rgba(0, 0, 0, 0.65);
+  transition: transform 120ms ease;
+}
+
+.tree-marker--shrub .tree-marker__dot {
+  border-radius: 6px;
+}
+
+.tree-marker:hover .tree-marker__dot {
+  transform: scale(1.2);
+}
+
+.tree-marker__label {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 3px 7px;
+  border-radius: 9999px;
+  border: 2px solid var(--tree-color);
+  background: #fff;
+  color: #0f172a;
+  font: 700 11px/1.1 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  letter-spacing: 0.01em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.tree-marker--selected .tree-marker__dot {
+  transform: scale(1.25);
+}
+
+.tree-marker--selected::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 9999px;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px var(--tree-color);
+  animation: tree-marker-pulse 1.4s ease-out infinite;
+}
+
+@keyframes tree-marker-pulse {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* ---- CAD underlay labels ---- */
+
+.cad-label-icon {
+  background: transparent;
+  border: 0;
+}
+
+.cad-label {
+  display: inline-block;
+  transform: translate(0, -120%);
+  white-space: nowrap;
+  padding: 2px 6px;
+  border: 1px solid #22d3ee;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #22d3ee;
+  font: 600 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}

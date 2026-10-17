@@ -1,0 +1,101 @@
+id,type,polish_name,latin_name,cultivar
+1,tree,Klon pospolity,Acer platanoides,pospolity
+2,tree,Klon pospolity,Acer platanoides,'Globosum'
+3,tree,Klon pospolity,Acer platanoides,'Royal Red'
+4,tree,Klon pospolity,Acer platanoides,'Columnare'
+5,tree,Klon jawor,Acer pseudoplatanus,pospolity
+6,tree,Klon jawor,Acer pseudoplatanus,'Atropurpureum'
+7,tree,Klon polny,Acer campestre,'Elsrijk'
+8,tree,Klon czerwony,Acer rubrum,'October Glory'
+9,tree,Klon srebrzysty,Acer saccharinum,pospolity
+10,tree,Klon tatarski,Acer tataricum,podgat. ginnala
+11,tree,Klon jesionolistny,Acer negundo,'Flamingo'
+12,tree,Lipa drobnolistna,Tilia cordata,pospolita
+13,tree,Lipa drobnolistna,Tilia cordata,'Greenspire'
+14,tree,Lipa drobnolistna,Tilia cordata,'Rancho'
+15,tree,Lipa szerokolistna,Tilia platyphyllos,pospolita
+16,tree,Lipa krymska,Tilia ×euchlora,pospolita
+17,tree,Lipa srebrzysta,Tilia tomentosa,'Brabant'
+18,tree,Lipa holenderska,Tilia ×europaea,'Pallida'
+19,tree,Dąb szypułkowy,Quercus robur,pospolity
+20,tree,Dąb szypułkowy,Quercus robur,'Fastigiata'
+21,tree,Dąb bezszypułkowy,Quercus petraea,pospolity
+22,tree,Dąb czerwony,Quercus rubra,pospolity
+23,tree,Dąb błotny,Quercus palustris,'Green Pillar'
+24,tree,Brzoza brodawkowata,Betula pendula,pospolita
+25,tree,Brzoza brodawkowata,Betula pendula,'Youngii'
+26,tree,Brzoza pożyteczna,Betula utilis,'Doorenbos'
+27,tree,Brzoza omszona,Betula pubescens,pospolita
+28,tree,Grab pospolity,Carpinus betulus,pospolity
+29,tree,Grab pospolity,Carpinus betulus,'Fastigiata'
+30,tree,Grab pospolity,Carpinus betulus,'Frans Fontaine'
+31,tree,Buk pospolity,Fagus sylvatica,pospolity
+32,tree,Buk pospolity,Fagus sylvatica,'Purpurea Pendula'
+33,tree,Buk pospolity,Fagus sylvatica,'Dawyck Purple'
+34,tree,Jesion wyniosły,Fraxinus excelsior,pospolity
+35,tree,Jesion wyniosły,Fraxinus excelsior,'Nana'
+36,tree,Jesion pensylwański,Fraxinus pennsylvanica,pospolity
+37,tree,Platan klonolistny,Platanus ×hispanica,'Acerifolia'
+38,tree,Platan klonolistny,Platanus ×hispanica,'Alphen's Globe'
+39,tree,Kasztanowiec pospolity,Aesculus hippocastanum,pospolity
+40,tree,Kasztanowiec czerwony,Aesculus ×carnea,'Briotii'
+41,tree,Robinia akacjowa,Robinia pseudoacacia,pospolita
+42,tree,Robinia akacjowa,Robinia pseudoacacia,'Umbraculifera'
+43,tree,Jarząb pospolity,Sorbus aucuparia,pospolity
+44,tree,Jarząb pospolity,Sorbus aucuparia,'Fastigiata'
+45,tree,Jarząb szwedzki,Sorbus intermedia,pospolity
+46,tree,Jarząb mączny,Sorbus aria,'Magnifica'
+47,tree,Głóg pośredni,Crataegus ×media,'Paul's Scarlet'
+48,tree,Głóg jednoszyjkowy,Crataegus monogyna,'Stricta'
+49,tree,Wiśnia piłkowana,Prunus serrulata,'Kanzan'
+50,tree,Wiśnia piłkowana,Prunus serrulata,'Amanogawa'
+51,tree,Wiśnia osobliwa,Prunus ×eminens,'Umbraculifera'
+52,tree,Śliwa wiśniowa,Prunus cerasifera,'Pissardii'
+53,tree,Jabłoń ozdobna,Malus,'Royalty'
+54,tree,Jabłoń ozdobna,Malus,'Ola'
+55,tree,Grusza drobnoowocowa,Pyrus calleryana,'Chanticleer'
+56,tree,Wiąz szypułkowy,Ulmus laevis,pospolity
+57,tree,Wiąz górski,Ulmus glabra,'Camperdownii'
+58,tree,Wierzba biała,Salix alba,'Tristis'
+59,tree,Olsza czarna,Alnus glutinosa,pospolita
+60,tree,Surmia bignoniowa,Catalpa bignonioides,'Nana'
+61,tree,Miłorząb dwuklapowy,Ginkgo biloba,pospolity
+62,tree,Tulipanowiec amerykański,Liriodendron tulipifera,pospolity
+63,tree,Sosna zwyczajna,Pinus sylvestris,pospolita
+64,tree,Sosna czarna,Pinus nigra,pospolita
+65,tree,Świerk pospolity,Picea abies,pospolity
+66,tree,Świerk kłujący,Picea pungens,'Glauca'
+67,tree,Modrzew europejski,Larix decidua,pospolity
+68,tree,Cis pospolity,Taxus baccata,pospolity
+69,tree,Daglezja zielona,Pseudotsuga menziesii,pospolita
+70,tree,Jodła kalifornijska,Abies concolor,pospolita
+71,shrub,Tawuła japońska,Spiraea japonica,'Goldflame'
+72,shrub,Tawuła japońska,Spiraea japonica,'Little Princess'
+73,shrub,Tawuła szara,Spiraea ×cinerea,'Grefsheim'
+74,shrub,Berberys Thunberga,Berberis thunbergii,'Atropurpurea'
+75,shrub,Berberys Thunberga,Berberis thunbergii,'Maria'
+76,shrub,Róża pomarszczona,Rosa rugosa,pospolita
+77,shrub,Róża okrywowa,Rosa,'The Fairy'
+78,shrub,Róża okrywowa,Rosa,'Heidetraum'
+79,shrub,Hortensja bukietowa,Hydrangea paniculata,'Limelight'
+80,shrub,Hortensja bukietowa,Hydrangea paniculata,'Vanille Fraise'
+81,shrub,Pęcherznica kalinolistna,Physocarpus opulifolius,'Diabolo'
+82,shrub,Pęcherznica kalinolistna,Physocarpus opulifolius,'Luteus'
+83,shrub,Dereń biały,Cornus alba,'Sibirica'
+84,shrub,Dereń biały,Cornus alba,'Elegantissima'
+85,shrub,Dereń rozłogowy,Cornus sericea,'Flaviramea'
+86,shrub,Irga błyszcząca,Cotoneaster lucidus,pospolita
+87,shrub,Irga pozioma,Cotoneaster horizontalis,pospolita
+88,shrub,Irga Dammera,Cotoneaster dammeri,'Major'
+89,shrub,Krzewuszka cudowna,Weigela florida,'Nana Variegata'
+90,shrub,Forsycja pośrednia,Forsythia ×intermedia,'Spectabilis'
+91,shrub,Lilak pospolity,Syringa vulgaris,pospolity
+92,shrub,Jaśminowiec wonny,Philadelphus coronarius,pospolity
+93,shrub,Kalina koralowa,Viburnum opulus,'Roseum'
+94,shrub,Śnieguliczka biała,Symphoricarpos albus,pospolita
+95,shrub,Pięciornik krzewiasty,Potentilla fruticosa,'Goldfinger'
+96,shrub,Jałowiec płożący,Juniperus horizontalis,'Wiltonii'
+97,shrub,Jałowiec sabiński,Juniperus sabina,'Tamariscifolia'
+98,shrub,Sosna górska (Kosodrzewina),Pinus mugo,'Pumilio'
+99,shrub,Liliowiec ogrodowy (Bylina),Hemerocallis,'Stella de Oro'
+100,shrub,Kocimiętka Faassena (Bylina),Nepeta ×faassenii,'Walker's Low'
