@@ -1,24 +1,74 @@
 import { CheckCircle2, ListTodo, LogOut, Maximize2, Tablet } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMap } from 'react-leaflet';
 import { useNavigate } from 'react-router';
 import { useCurrentUser } from '@/app/CurrentUserContext';
 import { Button } from '@/components/shared/Button';
-import { EmptyState, ErrorMessage } from '@/components/shared/Feedback';
+import { ErrorMessage } from '@/components/shared/Feedback';
 import { TabletFrame } from '@/components/shared/TabletFrame';
 import { TreeMap } from '@/features/map/TreeMap';
 import { useTrees } from '@/features/map/useTrees';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { CompleteTaskDialog } from './CompleteTaskDialog';
+import { TaskList } from './TaskList';
+import type { ContractorTask } from './types';
 
 const FRAME_KEY = 'tree-monitor:tablet-frame';
 
 type ContractorTab = 'todo' | 'done';
 
+const TODO_STATUSES = ['assigned', 'rejected'];
+const FOCUS_ZOOM = 20;
+
+/** Centers the map on the selected task's tree (rendered as a TreeMap child). */
+function FlyToTarget({ target }: { target: { lat: number; lng: number; key: string } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (target) map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), FOCUS_ZOOM), { duration: 0.8 });
+  }, [map, target]);
+  return null;
+}
+
 export function ContractorPage() {
   const { user, logout } = useCurrentUser();
   const navigate = useNavigate();
-  const { trees, error } = useTrees();
+  const { trees, error, reload: reloadTrees } = useTrees();
+  const [tasks, setTasks] = useState<ContractorTask[]>([]);
+  const [tasksError, setTasksError] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<ContractorTask | null>(null);
+  const [executing, setExecuting] = useState<ContractorTask | null>(null);
+  const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; key: string } | null>(null);
   const [framed, setFramed] = useState(() => sessionStorage.getItem(FRAME_KEY) !== 'full');
   const [tab, setTab] = useState<ContractorTab>('todo');
+
+  const loadTasks = useCallback(async () => {
+    try {
+      setTasks(await api.get<ContractorTask[]>('/api/tasks'));
+      setTasksError(null);
+    } catch (e) {
+      setTasksError(e instanceof Error ? e.message : 'Nie udało się pobrać zadań.');
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTasks();
+  }, [loadTasks]);
+
+  const todoTasks = useMemo(() => tasks.filter((t) => TODO_STATUSES.includes(t.status)), [tasks]);
+  const doneTasks = useMemo(() => tasks.filter((t) => !TODO_STATUSES.includes(t.status)), [tasks]);
+
+  const selectTask = (task: ContractorTask) => {
+    setSelectedTask(task);
+    setFlyTarget({ lat: task.tree_latitude, lng: task.tree_longitude, key: `${task.id}-${Date.now()}` });
+  };
+
+  const onCompleted = () => {
+    setExecuting(null);
+    setTab('done');
+    void loadTasks();
+    void reloadTrees();
+  };
 
   const toggleFrame = () => {
     setFramed((prev) => {
@@ -40,7 +90,7 @@ export function ContractorPage() {
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant="secondary" onClick={toggleFrame}>
             {framed ? <Maximize2 /> : <Tablet />}
-            {framed ? 'Pełny ekran' : 'Ramka tabletu'}
+            {framed ? 'Pełny ekran' : 'Widok Tabletu (Ramka iPad)'}
           </Button>
         </div>
       </div>
@@ -64,8 +114,8 @@ export function ContractorPage() {
                 <div className="grid grid-cols-2 gap-2 p-3">
                   {(
                     [
-                      { id: 'todo', label: 'Do wykonania', icon: ListTodo },
-                      { id: 'done', label: 'Wykonane', icon: CheckCircle2 },
+                      { id: 'todo', label: `Do wykonania (${todoTasks.length})`, icon: ListTodo },
+                      { id: 'done', label: 'Wykonane / W weryfikacji', icon: CheckCircle2 },
                     ] as const
                   ).map(({ id, label, icon: Icon }) => (
                     <button
@@ -85,22 +135,32 @@ export function ContractorPage() {
                   ))}
                 </div>
                 <div className="flex-1 overflow-y-auto p-3">
-                  {error && <ErrorMessage>{error}</ErrorMessage>}
-                  <EmptyState
-                    icon={tab === 'todo' ? <ListTodo /> : <CheckCircle2 />}
-                    title={tab === 'todo' ? 'Lista zadań w przygotowaniu' : 'Historia w przygotowaniu'}
-                    description="Zadania wykonawcy i zgłaszanie wykonania powstają na branchu feat/contractor-tablet-view."
+                  {(error || tasksError) && <ErrorMessage className="mb-3">{error ?? tasksError}</ErrorMessage>}
+                  <TaskList
+                    tasks={tab === 'todo' ? todoTasks : doneTasks}
+                    mode={tab}
+                    selectedTaskId={selectedTask?.id ?? null}
+                    onSelect={selectTask}
+                    onExecute={setExecuting}
                   />
                 </div>
               </aside>
 
               <section className="min-w-0 flex-1">
-                <TreeMap trees={trees} layersCollapsed showCadControl={false} />
+                <TreeMap
+                  trees={trees}
+                  selectedTreeId={selectedTask?.tree_id ?? null}
+                  layersCollapsed
+                  showCadControl={false}
+                >
+                  <FlyToTarget target={flyTarget} />
+                </TreeMap>
               </section>
             </div>
           </div>
         </TabletFrame>
       </div>
+      <CompleteTaskDialog task={executing} onClose={() => setExecuting(null)} onCompleted={onCompleted} />
     </div>
   );
 }
