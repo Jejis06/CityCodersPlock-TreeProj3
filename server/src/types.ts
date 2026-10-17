@@ -77,3 +77,14 @@ export interface Task {
   created_at: string;
   updated_at: string;
 }
+
+export interface TaskHistoryItem extends Task {
+  assigned_to_name: string | null;
+  created_by_name: string | null;
+  reviewed_by_name: string | null;
+  locked_by_name: string | null;
+}
+
+export interface TreeDetails extends TreeListItem {
+  tasks: TaskHistoryItem[];
+}

@@ -9,7 +9,7 @@ import { MapFilterBar } from '@/features/map/MapFilterBar';
 import { EMPTY_TREE_FILTERS, type TreeFilters } from '@/features/map/treeFilters';
 import { TreeMap } from '@/features/map/TreeMap';
 import { useTrees } from '@/features/map/useTrees';
-import { TreeQuickInfo } from '@/features/tree-card/TreeQuickInfo';
+import { TreeCardSheet } from '@/features/tree-card/TreeCardSheet';
 import { TREE_STATUS_META, TREE_STATUSES, type TreeListItem } from '@/types/domain';
 
 const SUCCESS_NOTICE_MS = 4000;
@@ -18,7 +18,7 @@ export function OfficialMapPage() {
   const [filters, setFilters] = useState<TreeFilters>(EMPTY_TREE_FILTERS);
   const all = useTrees();
   const filtered = useTrees(filters);
-  const [selected, setSelected] = useState<TreeListItem | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addMode, setAddMode] = useState(false);
   const [pendingPosition, setPendingPosition] = useState<LatLng | null>(null);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
@@ -46,8 +46,13 @@ export function OfficialMapPage() {
 
   const handleCreated = (tree: TreeListItem) => {
     setPendingPosition(null);
-    setSelected(tree);
+    setSelectedId(tree.id);
     setCreatedCode(tree.code);
+    void all.reload();
+    void filtered.reload();
+  };
+
+  const handleTreeUpdated = () => {
     void all.reload();
     void filtered.reload();
   };
@@ -77,17 +82,13 @@ export function OfficialMapPage() {
 
         {(all.error ?? filtered.error) && <ErrorMessage>{all.error ?? filtered.error}</ErrorMessage>}
 
-        {selected ? (
-          <TreeQuickInfo tree={selected} onClose={() => setSelected(null)} />
-        ) : (
-          <Card>
-            <EmptyState
-              icon={<MousePointerClick />}
-              title="Wybierz roślinę"
-              description="Kliknij punkt na mapie, aby zobaczyć podstawowe dane rośliny."
-            />
-          </Card>
-        )}
+        <Card>
+          <EmptyState
+            icon={<MousePointerClick />}
+            title="Karta ewidencyjna"
+            description="Kliknij punkt na mapie, aby otworzyć kartę rośliny, zlecić zadanie i przejrzeć historię prac."
+          />
+        </Card>
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col">
@@ -105,8 +106,8 @@ export function OfficialMapPage() {
         <div className="relative min-h-0 flex-1">
           <TreeMap
             trees={filtered.trees}
-            selectedTreeId={selected?.id}
-            onTreeClick={addMode ? undefined : setSelected}
+            selectedTreeId={selectedId}
+            onTreeClick={addMode ? undefined : (tree) => setSelectedId(tree.id)}
             addMode={addMode}
             pendingPosition={pendingPosition}
             onMapClick={
@@ -152,6 +153,8 @@ export function OfficialMapPage() {
         onClose={() => setPendingPosition(null)}
         onCreated={handleCreated}
       />
+
+      <TreeCardSheet treeId={selectedId} onClose={() => setSelectedId(null)} onTreeUpdated={handleTreeUpdated} />
     </div>
   );
 }

@@ -79,6 +79,18 @@ export interface Task {
   updated_at: string;
 }
 
+export interface TaskHistoryItem extends Task {
+  assigned_to_name: string | null;
+  created_by_name: string | null;
+  reviewed_by_name: string | null;
+  locked_by_name: string | null;
+}
+
+/** GET /api/trees/:id — karta rośliny z historią prac (najnowsze zadania pierwsze). */
+export interface TreeDetails extends TreeListItem {
+  tasks: TaskHistoryItem[];
+}
+
 export const ROLE_LABELS: Record<Role, string> = {
   official: 'Urzędnik',
   contractor: 'Wykonawca',
@@ -124,6 +136,12 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   pending_approval: 'Czeka na zatwierdzenie',
   approved: 'Zatwierdzone',
   rejected: 'Odrzucone — do poprawki',
+};
+
+export const TREE_STATUS_FOR_CATEGORY: Record<TaskCategory, TreeStatus> = {
+  pielegnacja: 'yellow',
+  wycinka: 'red',
+  nasadzanie: 'blue',
 };
 
 export const CONTRACTOR_ID = '33333333-3333-3333-3333-333333333333';

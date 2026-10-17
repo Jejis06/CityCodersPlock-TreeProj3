@@ -1,12 +1,28 @@
 import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
-import { SENSITIVE_FIELDS, TASK_SUBCATEGORIES, TREE_STATUSES } from '../lib/constants.js';
+import {
+  CONTRACTOR_ID,
+  SENSITIVE_FIELDS,
+  TASK_SUBCATEGORIES,
+  TREE_STATUS_FOR_CATEGORY,
+  TREE_STATUSES,
+} from '../lib/constants.js';
 import { execute, nowIso, queryAll, queryOne, withTransaction, type SqlParams } from '../lib/db.js';
 import { getUser, HttpError } from '../lib/http.js';
 import { sanitizeForRole } from '../lib/sanitize.js';
 import { nextTreeCode } from '../lib/treeCode.js';
 import { requireRole } from '../middleware/requireRole.js';
-import type { PlantType, Role, Species, TaskCategory, TreeListItem, TreeStatus } from '../types.js';
+import type {
+  PlantType,
+  Role,
+  Species,
+  TaskCategory,
+  TaskHistoryItem,
+  TaskSubcategory,
+  TreeDetails,
+  TreeListItem,
+  TreeStatus,
+} from '../types.js';
 
 export const treesRouter = Router();
 
@@ -199,4 +215,96 @@ treesRouter.post('/', requireRole('official'), (req, res) => {
 
   const created = queryOne<TreeListItem>(`${treeSelectSql(user.role)} WHERE t.id = :id`, { id });
   res.status(201).json(sanitizeForRole(created, user.role));
+});
+
+const PUBLIC_TASK_COLUMNS = [
+  'id', 'tree_id', 'category', 'subcategory', 'status', 'assigned_to', 'created_by', 'description',
+  'contractor_comment', 'contractor_photo_url', 'completed_at', 'official_rejection_reason',
+  'reviewed_by', 'reviewed_at', 'locked_by', 'locked_at', 'created_at', 'updated_at',
+];
+const SENSITIVE_TASK_COLUMNS = ['contract_number', 'contract_scan_url'];
+
+const taskHistorySql = (role: Role) => {
+  const columns = role === 'official' ? [...PUBLIC_TASK_COLUMNS, ...SENSITIVE_TASK_COLUMNS] : PUBLIC_TASK_COLUMNS;
+  return `
+  SELECT ${columns.map((c) => `k.${c}`).join(', ')},
+         ua.full_name AS assigned_to_name,
+         uc.full_name AS created_by_name,
+         ur.full_name AS reviewed_by_name,
+         ul.full_name AS locked_by_name
+    FROM tasks k
+    LEFT JOIN users ua ON ua.id = k.assigned_to
+    LEFT JOIN users uc ON uc.id = k.created_by
+    LEFT JOIN users ur ON ur.id = k.reviewed_by
+    LEFT JOIN users ul ON ul.id = k.locked_by
+   WHERE k.tree_id = :treeId
+   ORDER BY k.created_at DESC, k.id`;
+};
+
+function loadTreeDetails(id: string, role: Role): TreeDetails {
+  const tree = queryOne<TreeListItem>(`${treeSelectSql(role)} WHERE t.id = :id`, { id });
+  if (!tree) throw new HttpError(404, 'Nie znaleziono rośliny.');
+  const tasks = queryAll<TaskHistoryItem>(taskHistorySql(role), { treeId: id });
+  return sanitizeForRole({ ...tree, tasks }, role);
+}
+
+/** GET /api/trees/:id — karta ewidencyjna z pełną historią prac. */
+treesRouter.get('/:id', (req, res) => {
+  const user = getUser(req);
+  res.json(loadTreeDetails(req.params.id, user.role));
+});
+
+interface CreateTaskBody {
+  category?: unknown;
+  subcategory?: unknown;
+  contract_number?: unknown;
+  contract_scan_url?: unknown;
+  description?: unknown;
+}
+
+/** POST /api/trees/:id/tasks — zlecenie zadania; przypisuje wykonawcę i zmienia kolor rośliny. */
+treesRouter.post('/:id/tasks', requireRole('official'), (req, res) => {
+  const user = getUser(req);
+  const treeId = String(req.params.id);
+  const body = (req.body ?? {}) as CreateTaskBody;
+
+  if (!isTaskCategory(body.category)) throw new HttpError(400, 'Wybierz kategorię zadania.');
+  const category = body.category;
+  if (!TASK_SUBCATEGORIES[category].includes(body.subcategory as TaskSubcategory)) {
+    throw new HttpError(400, 'Podkategoria nie pasuje do wybranej kategorii.');
+  }
+  const subcategory = body.subcategory as TaskSubcategory;
+
+  const contractNumber = optionalText(body.contract_number, 'contract_number');
+  if (!contractNumber) throw new HttpError(400, 'Podaj numer umowy.');
+
+  const values = {
+    id: randomUUID(),
+    treeId,
+    category,
+    subcategory,
+    assignedTo: CONTRACTOR_ID,
+    createdBy: user.id,
+    description: optionalText(body.description, 'description'),
+    contractNumber,
+    contractScanUrl: optionalText(body.contract_scan_url, 'contract_scan_url'),
+  };
+
+  withTransaction(() => {
+    const now = nowIso();
+    const updated = execute(
+      `UPDATE trees SET status = :status, contractor_id = :contractorId, updated_at = :now WHERE id = :treeId`,
+      { status: TREE_STATUS_FOR_CATEGORY[category], contractorId: CONTRACTOR_ID, now, treeId },
+    );
+    if (updated.changes === 0) throw new HttpError(404, 'Nie znaleziono rośliny.');
+    execute(
+      `INSERT INTO tasks (id, tree_id, category, subcategory, status, assigned_to, created_by, description,
+                          contract_number, contract_scan_url, created_at, updated_at)
+       VALUES (:id, :treeId, :category, :subcategory, 'assigned', :assignedTo, :createdBy, :description,
+               :contractNumber, :contractScanUrl, :now, :now)`,
+      { ...values, now },
+    );
+  });
+
+  res.status(201).json(loadTreeDetails(treeId, user.role));
 });

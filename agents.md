@@ -251,7 +251,7 @@ client/src/
   components/shared/         # Branch 0: Button (size="touch" dla tabletu), Card, Badge, FormControls (Input/Textarea/Select/Label),
                              #           Dialog, Sheet (radix), StatusDot, TabletFrame, Feedback (Spinner/ErrorMessage/EmptyState)
   features/map/              # Osoba A: TreeMap, MapLayers (Geoportal), TreeMarker, MapLegend, mapConfig, useTrees, cad/*
-  features/tree-card/        # Osoba A: TreeQuickInfo (Branch 0) -> pełna karta w Sheet + formularz "Zleć zadanie"
+  features/tree-card/        # Osoba A: TreeCardSheet (karta w Sheet, GET /api/trees/:id), TaskCreatorForm (POST /api/trees/:id/tasks), TaskTimeline
   features/approval-queue/   # Osoba B: ApprovalQueuePage (placeholder z Branch 0) -> kolejka, MUTEX, approve/reject
   features/contractor/       # Osoba B: ContractorPage (ramka tabletu + mapa z Branch 0) -> lista zadań, zgłaszanie wykonania
 ```
