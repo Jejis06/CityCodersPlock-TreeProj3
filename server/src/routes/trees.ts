@@ -13,7 +13,7 @@ import { getUser, HttpError } from '../lib/http.js';
 import { sanitizeForRole } from '../lib/sanitize.js';
 import { nextTreeCode } from '../lib/treeCode.js';
 import { requireRole } from '../middleware/requireRole.js';
-import { seedBdot10k } from '../seeds/bdot10kEnricher.js';
+import { recalculateAllTreeLocations, seedBdot10k } from '../seeds/bdot10kEnricher.js';
 import type {
   PlantType,
   Role,
@@ -373,6 +373,13 @@ treesRouter.post('/warranty-tasks', requireRole('official'), (req, res) => {
 treesRouter.post('/seed-bdot10k', requireRole('official'), (_req, res) => {
   const summary = seedBdot10k();
   res.status(summary.inserted_trees > 0 ? 201 : 200).json(summary);
+});
+
+/** POST /api/trees/recalculate-locations — przelicza adresy, numery działek i obrysy (ULDK + UUG) dla wszystkich roślin wg współrzędnych. */
+treesRouter.post('/recalculate-locations', requireRole('official'), async (req, res) => {
+  const forceLive = Boolean((req.body as { force_live?: unknown } | undefined)?.force_live);
+  const summary = await recalculateAllTreeLocations({ forceLive });
+  res.json(summary);
 });
 
 const PUBLIC_TASK_COLUMNS = [

@@ -284,41 +284,41 @@ INSERT INTO trees
    contractor_id, contract_number, contract_scan_url, funding_source, notes, created_by)
 VALUES
   ('aaaaaaaa-0000-0000-0000-000000000001', 'D1/2026', 'tree', 12, 52.54500, 19.68490,
-   'Stary Rynek, Płock', '141301_1.0001.123/4', 1985, 'green',
+   'Stary Rynek 6, Płock', '146201_1.0008.682/5', 1985, 'green',
    '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/011', '/demo/contracts/UM-ZZ-2026-011.pdf',
    'Budżet Miasta Płocka', 'Lipa przy ratuszu, po cięciu sanitarnym.', '11111111-1111-1111-1111-111111111111'),
 
   ('aaaaaaaa-0000-0000-0000-000000000002', 'D2/2026', 'tree', 2, 52.54180, 19.68950,
-   'ul. Tumska 8, Płock', '141301_1.0001.215/2', 2019, 'yellow',
+   'Mostowa 2, Płock', '146201_1.0008.1012/1', 2019, 'yellow',
    '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/014', '/demo/contracts/UM-ZZ-2026-014.pdf',
    'Płocki Budżet Obywatelski 2026', 'Klon kulisty na deptaku.', '11111111-1111-1111-1111-111111111111'),
 
   ('aaaaaaaa-0000-0000-0000-000000000003', 'D3/2026', 'tree', 19, 52.54080, 19.68880,
-   'Wzgórze Tumskie, Płock', '141301_1.0001.002/1', 1952, 'yellow',
+   'Tumska 1, Płock', '146201_1.0008.991/4', 1952, 'yellow',
    '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/014', '/demo/contracts/UM-ZZ-2026-014.pdf',
    'WFOŚiGW w Warszawie (dotacja 80%)', 'Pomnik przyrody — kandydat.', '11111111-1111-1111-1111-111111111111'),
 
   ('aaaaaaaa-0000-0000-0000-000000000004', 'D4/2026', 'tree', 39, 52.54890, 19.69800,
-   'Al. Jachowicza 2, Płock', '141301_1.0003.087', 1968, 'red',
+   'Al. Stanisława Jachowicza 30A, Płock', '146201_1.0007.185', 1968, 'red',
    '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/021', '/demo/contracts/UM-ZZ-2026-021.pdf',
    'Budżet Miasta Płocka', 'Drzewo zamierające, zagrożenie dla ruchu pieszego.', '22222222-2222-2222-2222-222222222222'),
 
   ('aaaaaaaa-0000-0000-0000-000000000005', 'D5/2026', 'tree', 34, 52.53790, 19.70120,
-   'ul. Kilińskiego 12, Płock', '141301_1.0004.311/7', 1975, 'red',
+   'Jana Kilińskiego 1, Płock', '146201_1.0008.981/9', 1975, 'red',
    '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/021', '/demo/contracts/UM-ZZ-2026-021.pdf',
    'Budżet Miasta Płocka', 'Zamieranie pędów jesionu (Hymenoscyphus fraxineus).', '22222222-2222-2222-2222-222222222222'),
 
   ('aaaaaaaa-0000-0000-0000-000000000006', 'D6/2026', 'tree', 61, 52.53990, 19.75440,
-   'Park Północny, Płock', '141301_1.0010.045', 2008, 'green',
+   'gen. Franciszka Kleeberga 2, Płock', '146201_1.0001.2906/153', 2008, 'green',
    NULL, NULL, NULL, NULL, 'Miłorząb przy alejce głównej.', '11111111-1111-1111-1111-111111111111'),
 
   ('aaaaaaaa-0000-0000-0000-000000000007', 'D7/2026', 'tree', 55, 52.54100, 19.69770,
-   'ul. Kolegialna 40, Płock', '141301_1.0005.150/3', 2026, 'blue',
+   'Jana Zygmunta Jakubowskiego 5, Płock', '146201_1.0008.930/11', 2026, 'blue',
    '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/030', '/demo/contracts/UM-ZZ-2026-030.pdf',
    'Rządowy program "Zielone Miasta" (NFOŚiGW)', 'Nasadzenie zastępcze za wycinkę D4/2026.', '11111111-1111-1111-1111-111111111111'),
 
   ('aaaaaaaa-0000-0000-0000-000000000008', 'K1/2026', 'shrub', 71, 52.54215, 19.69330,
-   'Plac Obrońców Warszawy, Płock', '141301_1.0003.120', 2022, 'green',
+   'Obrońców Warszawy 1, Płock', '146201_1.0008.826/2', 2022, 'green',
    NULL, NULL, NULL, NULL, 'Rabata z tawułą przy fontannie.', '11111111-1111-1111-1111-111111111111');
 
 -- 4.2b Drzewa z decyzji administracyjnych (Z DECYZJI: TAK), którym został < 1 miesiąc do upływu 3 lat od posadzenia
@@ -328,7 +328,7 @@ INSERT INTO trees
    funding_source, notes, created_by, created_at, updated_at)
 VALUES
   ('aaaaaaaa-0000-0000-0000-000000000009', 'D8/2026', 'tree', 28, 52.54420, 19.69140,
-   'ul. Grodzka 14, Płock', '141301_1.0001.188/2', 2023,
+   'Kolegialna 3A, Płock', '146201_1.0008.768', 2023,
    1, 'WOŚ.6131.44.2023', 'green', '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2023/089', '/demo/contracts/UM-ZZ-2026-011.pdf',
    'Nasadzenie zastępcze z decyzji administracyjnej', 'Grab pospolity — nasadzenie kompensacyjne z decyzji WOŚ.6131.44.2023 (upływ 3-letniej gwarancji za 11 dni).',
    '11111111-1111-1111-1111-111111111111',
@@ -336,7 +336,7 @@ VALUES
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 years', '+11 days')),
 
   ('aaaaaaaa-0000-0000-0000-000000000010', 'D9/2026', 'tree', 13, 52.54610, 19.69520,
-   'ul. Henryka Sienkiewicza 32, Płock', '141301_1.0002.094/1', 2023,
+   'Królewiecka 26, Płock', '146201_1.0008.563', 2023,
    1, 'WOŚ.6131.58.2023', 'green', '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2023/102', '/demo/contracts/UM-ZZ-2026-014.pdf',
    'Nasadzenie zastępcze z decyzji administracyjnej', 'Lipa drobnolistna Greenspire — nasadzenie z decyzji WOŚ.6131.58.2023 (upływ 3-letniej gwarancji za 23 dni).',
    '11111111-1111-1111-1111-111111111111',

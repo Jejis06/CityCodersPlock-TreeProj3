@@ -1,9 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { config } from '../lib/config.js';
 import { CONTRACTOR_ID } from '../lib/constants.js';
-import { execute, queryAll, queryOne, withTransaction } from '../lib/db.js';
+import { execute, nowIso, queryAll, queryOne, withTransaction } from '../lib/db.js';
 import { codePrefix } from '../lib/treeCode.js';
+import { reverseGeocodePoint } from '../routes/geocode.js';
 import type { PlantType, TaskCategory, TaskStatus, TaskSubcategory, TreeStatus } from '../types.js';
 
 /**
@@ -32,6 +33,26 @@ export interface KmlPoint {
   longitude: number;
 }
 
+export interface GeocodedPointCacheEntry {
+  address: string | null;
+  plot_number: string | null;
+  precinct: string | null;
+  parcel_geometry: string | null;
+}
+
+export const coordKey = (lat: number, lng: number) => `${lat.toFixed(6)},${lng.toFixed(6)}`;
+
+export function loadBdot10kGeocoded(
+  filePath: string = config.bdot10kGeocodedPath,
+): Record<string, GeocodedPointCacheEntry> {
+  if (!existsSync(filePath)) return {};
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf8')) as Record<string, GeocodedPointCacheEntry>;
+  } catch {
+    return {};
+  }
+}
+
 /** Reads `<Placemark><Point><coordinates>lng,lat[,alt]</coordinates>` (KML order: longitude first). */
 export function parseKmlPoints(kml: string): KmlPoint[] {
   const points: KmlPoint[] = [];
@@ -49,7 +70,7 @@ export function parseKmlPoints(kml: string): KmlPoint[] {
     if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) continue;
     if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) continue;
 
-    const key = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+    const key = coordKey(latitude, longitude);
     if (seen.has(key)) continue;
     seen.add(key);
 
@@ -236,6 +257,7 @@ export interface EnrichedPlant {
   district: string;
   address: string;
   plot_number: string;
+  parcel_geometry: string | null;
   planting_year: number | null;
   is_from_decision: 0 | 1;
   decision_number: string | null;
@@ -272,7 +294,11 @@ const taskIdFor = (treeIndex: number, taskIndex: number) =>
  * Splits: 80% tree / 20% shrub, 70% green / 12% yellow / 10% blue / 8% red, ~25% of trees from decisions
  * (at least 6 planted in Oct/Nov three years ago → 3-year warranty alerts).
  */
-export function enrichBdot10kPoints(points: readonly KmlPoint[], now: Date = new Date()): EnrichedPlant[] {
+export function enrichBdot10kPoints(
+  points: readonly KmlPoint[],
+  now: Date = new Date(),
+  geocodedCache: Record<string, GeocodedPointCacheEntry> = loadBdot10kGeocoded(),
+): EnrichedPlant[] {
   const rand = mulberry32(RANDOM_SEED);
   const nowMs = now.getTime();
   const currentYear = now.getUTCFullYear();
@@ -331,11 +357,19 @@ export function enrichBdot10kPoints(points: readonly KmlPoint[], now: Date = new
       : null;
 
     const speciesId = pick(rand, type === 'tree' ? TREE_SPECIES_IDS : SHRUB_SPECIES_IDS);
-    const district = DISTRICTS.find((d) => d.matches(point.latitude, point.longitude)) ?? DISTRICTS[DISTRICTS.length - 1]!;
-    const street = pick(rand, district.streets);
-    const address = `${street} ${between(rand, 1, 64)}, ${district.name}, Płock`;
-    const plotSuffix = rand() < 0.4 ? `/${between(rand, 1, 9)}` : '';
-    const plotNumber = `146201_1.${district.precinct}.${between(rand, 100, 999)}${plotSuffix}`;
+    const fallbackDistrict =
+      DISTRICTS.find((d) => d.matches(point.latitude, point.longitude)) ?? DISTRICTS[DISTRICTS.length - 1]!;
+    // Advance PRNG identically regardless of whether geocodedCache has this point.
+    const fallbackStreet = pick(rand, fallbackDistrict.streets);
+    const fallbackHouse = between(rand, 1, 64);
+    const fallbackPlotSuffix = rand() < 0.4 ? `/${between(rand, 1, 9)}` : '';
+    const fallbackPlotNumber = `146201_1.${fallbackDistrict.precinct}.${between(rand, 100, 999)}${fallbackPlotSuffix}`;
+
+    const geocoded = geocodedCache[coordKey(point.latitude, point.longitude)];
+    const districtName = geocoded?.precinct || fallbackDistrict.name;
+    const address = geocoded?.address ?? `${fallbackStreet} ${fallbackHouse}, ${fallbackDistrict.name}, Płock`;
+    const plotNumber = geocoded?.plot_number ?? fallbackPlotNumber;
+    const parcelGeometry = geocoded?.parcel_geometry ?? null;
     const contract = isFromDecision ? CONTRACTS.gwar : contractForYear(plantingYear);
 
     const tasks = buildTasks({ rand, index, status, statusOrder, isAlert, createdMs, nowMs, createdBy });
@@ -354,9 +388,10 @@ export function enrichBdot10kPoints(points: readonly KmlPoint[], now: Date = new
       species_id: speciesId,
       latitude: point.latitude,
       longitude: point.longitude,
-      district: district.name,
+      district: districtName,
       address,
       plot_number: plotNumber,
+      parcel_geometry: parcelGeometry,
       planting_year: plantingYear,
       is_from_decision: isFromDecision ? 1 : 0,
       decision_number: decisionNumber,
@@ -365,7 +400,7 @@ export function enrichBdot10kPoints(points: readonly KmlPoint[], now: Date = new
       contract_number: contract.number,
       contract_scan_url: contract.scan,
       funding_source: pick(rand, FUNDING_SOURCES),
-      notes: `Lokalizacja z BDOT10k (TERYT ${BDOT10K_TERYT}${sourceLabel}), ${district.name}.${decisionNote}`,
+      notes: `Lokalizacja z BDOT10k (TERYT ${BDOT10K_TERYT}${sourceLabel}), obręb ${districtName}.${decisionNote}`,
       created_by: createdBy,
       created_at: iso(createdMs),
       tasks,
@@ -495,10 +530,17 @@ const maxCodeNumber = (prefix: 'D' | 'K') =>
     { prefix },
   )?.n ?? 0;
 
+/** Updates BDOT10k note text when precinct changes (e.g. `), Stare Miasto.` -> `), obręb Śródmieście.`). */
+function refreshBdot10kNotePrecinct(notes: string | null, precinct: string | null): string | null {
+  if (!notes || !precinct || !notes.startsWith('Lokalizacja z BDOT10k')) return notes;
+  return notes.replace(/\),\s*(?:obręb\s+)?[^.]+\./, `), obręb ${precinct}.`);
+}
+
 /** Idempotent: points already imported (deterministic ids) are skipped, so re-running only restores deleted ones. */
 export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSeedSummary {
+  const geocodedCache = loadBdot10kGeocoded();
   const points = loadBdot10kPoints(filePath);
-  const plants = enrichBdot10kPoints(points);
+  const plants = enrichBdot10kPoints(points, new Date(), geocodedCache);
 
   return withTransaction(() => {
     const existing = new Set(
@@ -514,7 +556,24 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
     let alertTrees = 0;
 
     for (const plant of plants) {
-      if (existing.has(plant.id)) continue;
+      if (existing.has(plant.id)) {
+        execute(
+          `UPDATE trees
+              SET address = :address,
+                  plot_number = :plotNumber,
+                  parcel_geometry = COALESCE(:parcelGeometry, parcel_geometry),
+                  notes = :notes
+            WHERE id = :id`,
+          {
+            id: plant.id,
+            address: plant.address,
+            plotNumber: plant.plot_number,
+            parcelGeometry: plant.parcel_geometry,
+            notes: plant.notes,
+          },
+        );
+        continue;
+      }
       if (speciesTypes.get(plant.species_id) !== plant.type) {
         throw new Error(`[bdot10k] Gatunek ${plant.species_id} nie pasuje do typu "${plant.type}".`);
       }
@@ -522,11 +581,11 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
       const code = `${prefix}${nextNumber[prefix]++}/${plant.code_year}`;
 
       execute(
-        `INSERT INTO trees (id, code, type, species_id, latitude, longitude, address, plot_number, planting_year,
-                            is_from_decision, decision_number, status, contractor_id, contract_number,
+        `INSERT INTO trees (id, code, type, species_id, latitude, longitude, address, plot_number, parcel_geometry,
+                            planting_year, is_from_decision, decision_number, status, contractor_id, contract_number,
                             contract_scan_url, funding_source, notes, created_by, created_at, updated_at)
-         VALUES (:id, :code, :type, :speciesId, :latitude, :longitude, :address, :plotNumber, :plantingYear,
-                 :isFromDecision, :decisionNumber, :status, :contractorId, :contractNumber,
+         VALUES (:id, :code, :type, :speciesId, :latitude, :longitude, :address, :plotNumber, :parcelGeometry,
+                 :plantingYear, :isFromDecision, :decisionNumber, :status, :contractorId, :contractNumber,
                  :contractScanUrl, :fundingSource, :notes, :createdBy, :createdAt, :createdAt)`,
         {
           id: plant.id,
@@ -537,6 +596,7 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
           longitude: plant.longitude,
           address: plant.address,
           plotNumber: plant.plot_number,
+          parcelGeometry: plant.parcel_geometry,
           plantingYear: plant.planting_year,
           isFromDecision: plant.is_from_decision,
           decisionNumber: plant.decision_number,
@@ -588,6 +648,29 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
       }
     }
 
+    // Backfill cached GUGiK parcel geometries and addresses for initial seed rows (e.g. from init.sql).
+    const seedRows = queryAll<{ id: string; latitude: number; longitude: number }>(
+      `SELECT id, latitude, longitude FROM trees WHERE id NOT LIKE :prefix`,
+      { prefix: `${BDOT10K_TREE_ID_PREFIX}%` },
+    );
+    for (const row of seedRows) {
+      const cached = geocodedCache[coordKey(row.latitude, row.longitude)];
+      if (!cached) continue;
+      execute(
+        `UPDATE trees
+            SET address = COALESCE(:address, address),
+                plot_number = COALESCE(:plotNumber, plot_number),
+                parcel_geometry = COALESCE(:parcelGeometry, parcel_geometry)
+          WHERE id = :id`,
+        {
+          id: row.id,
+          address: cached.address,
+          plotNumber: cached.plot_number,
+          parcelGeometry: cached.parcel_geometry,
+        },
+      );
+    }
+
     return {
       source: path.basename(filePath),
       teryt: BDOT10K_TERYT,
@@ -605,4 +688,112 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
 export function seedBdot10kIfSparse(minTrees: number = BDOT10K_MIN_TREES): Bdot10kSeedSummary | null {
   if (countTrees() >= minTrees) return null;
   return seedBdot10k();
+}
+
+export interface RecalculateLocationsSummary {
+  total_trees: number;
+  updated_trees: number;
+  from_cache: number;
+  from_gugik_live: number;
+}
+
+/**
+ * Recalculates `address`, `plot_number`, `parcel_geometry` (and BDOT10k precinct note)
+ * for all plants in `trees` based on their `(latitude, longitude)` using GUGiK ULDK + UUG
+ * (with local cache fallback for known seed points).
+ */
+export async function recalculateAllTreeLocations(options?: {
+  forceLive?: boolean;
+}): Promise<RecalculateLocationsSummary> {
+  const geocodedCache = options?.forceLive ? {} : loadBdot10kGeocoded();
+  const rows = queryAll<{
+    id: string;
+    latitude: number;
+    longitude: number;
+    address: string | null;
+    plot_number: string | null;
+    parcel_geometry: string | null;
+    notes: string | null;
+  }>('SELECT id, latitude, longitude, address, plot_number, parcel_geometry, notes FROM trees ORDER BY created_at, code');
+
+  const resolved: {
+    id: string;
+    address: string | null;
+    plotNumber: string | null;
+    parcelGeometry: string | null;
+    notes: string | null;
+    changed: boolean;
+  }[] = [];
+
+  let fromCache = 0;
+  let fromGugikLive = 0;
+
+  for (const row of rows) {
+    const key = coordKey(row.latitude, row.longitude);
+    let entry = geocodedCache[key];
+    if (entry) {
+      fromCache++;
+    } else {
+      const live = await reverseGeocodePoint(row.latitude, row.longitude);
+      fromGugikLive++;
+      entry = {
+        address: live.address,
+        plot_number: live.plot_number,
+        precinct: live.precinct,
+        parcel_geometry: live.geometry ? JSON.stringify(live.geometry) : null,
+      };
+    }
+
+    const nextAddress = entry.address ?? row.address;
+    const nextPlotNumber = entry.plot_number ?? row.plot_number;
+    const nextParcelGeometry = entry.parcel_geometry ?? row.parcel_geometry;
+    const nextNotes = refreshBdot10kNotePrecinct(row.notes, entry.precinct);
+    const changed =
+      nextAddress !== row.address ||
+      nextPlotNumber !== row.plot_number ||
+      nextParcelGeometry !== row.parcel_geometry ||
+      nextNotes !== row.notes;
+
+    resolved.push({
+      id: row.id,
+      address: nextAddress,
+      plotNumber: nextPlotNumber,
+      parcelGeometry: nextParcelGeometry,
+      notes: nextNotes,
+      changed,
+    });
+  }
+
+  let updatedTrees = 0;
+  withTransaction(() => {
+    const now = nowIso();
+    for (const item of resolved) {
+      if (!item.changed) continue;
+      execute(
+        `UPDATE trees
+            SET address = :address,
+                plot_number = :plotNumber,
+                parcel_geometry = :parcelGeometry,
+                notes = :notes,
+                updated_at = :now
+          WHERE id = :id`,
+        {
+          id: item.id,
+          address: item.address,
+          plotNumber: item.plotNumber,
+          parcelGeometry: item.parcelGeometry,
+          notes: item.notes,
+          now,
+        },
+      );
+      updatedTrees++;
+    }
+  });
+
+  return {
+    total_trees: rows.length,
+    updated_trees: updatedTrees,
+    from_cache: fromCache,
+    from_gugik_live: fromGugikLive,
+  };
 }

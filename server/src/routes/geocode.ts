@@ -133,6 +133,7 @@ interface UugResult {
   number?: string | null;
   x?: string;
   y?: string;
+  distance?: string;
 }
 
 interface UugResponse {
@@ -145,18 +146,65 @@ async function fetchUug(params: Record<string, string>): Promise<UugResult[]> {
   return Object.values(parsed.results ?? {});
 }
 
-async function fetchAddress(lat: number, lng: number): Promise<UugResult | null> {
-  const [first] = await fetchUug({
-    request: 'GetAddressReverse',
-    location: `POINT(${lng} ${lat})`,
-    srid: '4326',
+function pickClosestAddress(results: UugResult[]): UugResult | null {
+  if (results.length === 0) return null;
+  return results.reduce((best, cur) => {
+    const bestDist = Number(best.distance ?? Number.POSITIVE_INFINITY);
+    const curDist = Number(cur.distance ?? Number.POSITIVE_INFINITY);
+    return curDist < bestDist ? cur : best;
   });
-  return first ?? null;
+}
+
+async function fetchAddress(lat: number, lng: number): Promise<UugResult | null> {
+  const near = pickClosestAddress(
+    await fetchUug({
+      request: 'GetAddressReverse',
+      location: `POINT(${lng} ${lat})`,
+      srid: '4326',
+    }),
+  );
+  if (near?.street) return near;
+
+  const wider = pickClosestAddress(
+    await fetchUug({
+      request: 'GetAddressReverse',
+      location: `POINT(${lng} ${lat})`,
+      srid: '4326',
+      radius: '500',
+    }),
+  );
+  return wider ?? near;
 }
 
 function formatAddress(street: string | null, number: string | null, city: string): string | null {
   if (!street) return null;
   return `${[street, number].filter(Boolean).join(' ')}, ${city}`;
+}
+
+export async function reverseGeocodePoint(lat: number, lng: number): Promise<ReverseGeocodeResult> {
+  const [parcelResult, addressResult] = await Promise.allSettled([fetchParcel(lat, lng), fetchAddress(lat, lng)]);
+  if (parcelResult.status === 'rejected' && addressResult.status === 'rejected') {
+    throw new HttpError(502, 'Usługi GUGiK (ULDK / lokalizacji) są chwilowo niedostępne.');
+  }
+
+  const parcel = parcelResult.status === 'fulfilled' ? parcelResult.value : null;
+  const address = addressResult.status === 'fulfilled' ? addressResult.value : null;
+  const street = address?.street ?? null;
+  const houseNumber = address?.number ?? null;
+
+  return {
+    lat,
+    lng,
+    address: formatAddress(street, houseNumber, address?.city ?? CITY),
+    street,
+    house_number: houseNumber,
+    plot_number: parcel?.plot_number ?? null,
+    parcel_number: parcel?.parcel_number ?? null,
+    parcel_label: parcel ? `dz. ${parcel.parcel_number}` : null,
+    precinct: parcel?.precinct || null,
+    commune: parcel?.commune || null,
+    geometry: parcel?.geometry ?? null,
+  };
 }
 
 /**
@@ -174,29 +222,7 @@ geocodeRouter.get('/reverse', async (req, res) => {
     throw new HttpError(400, 'Współrzędne poza obszarem Płocka.');
   }
 
-  const [parcelResult, addressResult] = await Promise.allSettled([fetchParcel(lat, lng), fetchAddress(lat, lng)]);
-  if (parcelResult.status === 'rejected' && addressResult.status === 'rejected') {
-    throw new HttpError(502, 'Usługi GUGiK (ULDK / lokalizacji) są chwilowo niedostępne.');
-  }
-
-  const parcel = parcelResult.status === 'fulfilled' ? parcelResult.value : null;
-  const address = addressResult.status === 'fulfilled' ? addressResult.value : null;
-  const street = address?.street ?? null;
-  const houseNumber = address?.number ?? null;
-
-  const body: ReverseGeocodeResult = {
-    lat,
-    lng,
-    address: formatAddress(street, houseNumber, address?.city ?? CITY),
-    street,
-    house_number: houseNumber,
-    plot_number: parcel?.plot_number ?? null,
-    parcel_number: parcel?.parcel_number ?? null,
-    parcel_label: parcel ? `dz. ${parcel.parcel_number}` : null,
-    precinct: parcel?.precinct || null,
-    commune: parcel?.commune || null,
-    geometry: parcel?.geometry ?? null,
-  };
+  const body = await reverseGeocodePoint(lat, lng);
   res.json(body);
 });
 

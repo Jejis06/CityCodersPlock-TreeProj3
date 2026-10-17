@@ -16,5 +16,6 @@ export const config = {
   dbPath: path.resolve(serverRoot, process.env.DB_PATH ?? '../database/tree-monitor.db'),
   initSqlPath: path.resolve(serverRoot, '../database/init.sql'),
   bdot10kKmlPath: path.resolve(serverRoot, '../database/plock_bdot10k_trees.kml'),
+  bdot10kGeocodedPath: path.resolve(serverRoot, '../database/plock_bdot10k_geocoded.json'),
   uploadsDir: path.resolve(serverRoot, 'uploads'),
 };

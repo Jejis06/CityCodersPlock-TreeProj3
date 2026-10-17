@@ -188,7 +188,8 @@ Wszystkie endpointy (poza `/api/health` i `/api/users`) wymagają nagłówka `x-
 | PATCH | `/api/trees/:id` | official | edycja rośliny (zmiana wykonawcy, przesunięcie współrzędnych + adres/działka/geometria, parametry) |
 | DELETE | `/api/trees/:id` | official | usunięcie rośliny wraz z powiązanymi zadaniami (`ON DELETE CASCADE`) |
 | POST | `/api/trees/warranty-tasks` | official | masowe wygenerowanie pakietu zadań kontroli gwarancyjnej (po 3 latach) dla drzew z decyzji |
-| POST | `/api/trees/seed-bdot10k` | official | import punktów BDOT10k Płocka (`database/plock_bdot10k_trees.kml`) + wzbogacenie danych; idempotentny, zwraca podsumowanie |
+| POST | `/api/trees/seed-bdot10k` | official | import punktów BDOT10k Płocka (`database/plock_bdot10k_trees.kml`) + wzbogacenie danych (adresy/działki/obrysy z GUGiK ULDK+UUG, cache `database/plock_bdot10k_geocoded.json`); idempotentny, zwraca podsumowanie |
+| POST | `/api/trees/recalculate-locations` | official | przeliczenie `address`, `plot_number`, `parcel_geometry` i obrębu w notatkach dla wszystkich roślin w bazie wg współrzędnych (`reverseGeocodePoint` z GUGiK ULDK + UUG) |
 | POST | `/api/trees/:id/tasks` | official | zlecenie zadania (przypisanie do wykonawcy drzewa lub domyślnego wykonawcy) |
 | GET  | `/api/tasks?status=a,b` | any | official: wszystkie (kolejka: `pending_approval` + info o blokadzie); contractor: tylko własne |
 | POST | `/api/tasks/:id/submit` | contractor | zgłoszenie wykonania `{ photo_url, comment? }` |
