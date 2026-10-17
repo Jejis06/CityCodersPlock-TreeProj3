@@ -285,3 +285,50 @@ Zasoby demo (w `client/public/demo/`, serwowane statycznie): `photos/*.svg` (zdj
 - Komponenty w stylu shadcn/ui (Tailwind + `class-variance-authority` + `clsx`/`tailwind-merge` przez `cn()`), ikony `lucide-react`.
 - Obsługa błędów: każdy endpoint w `try/catch`, sensowne kody HTTP (400/401/403/404/409/500).
 - Nie generuj kodu poza zakresem bieżącego branchu bez pytania.
+
+---
+
+## Architektura: Moduły Osoby B (Wykonawca & Eksporty)
+
+Moduły z brancha `feat/contractor-isolation-and-visual-badges`. Zasada: jedna odpowiedzialność na plik, logika filtrowania w hookach, UI w małych komponentach.
+
+### Wspólne oznaczenia roślin i zadań — `client/src/components/shared/PlantBadge.tsx`
+Zamiast surowych zapisów typu `D6 · Dąb` używaj wyłącznie tych komponentów (listy zadań, kolejka urzędnika, dialogi, karty):
+- `PlantBadge({ type, code, size? })` — `[Drzewo • D6/2026]` (ikona `TreeDeciduous`, zielono-szmaragdowy) albo `[Krzew • K6/2026]` (ikona `Sprout`, fioletowo-niebieski).
+- `TaskCategoryChip({ category, subcategory, size? })` — kolorowy chip rodzaju pracy: Pielęgnacja (bursztynowy, `Leaf`), Wycinka (czerwony, `Axe`), Nasadzanie (błękitny, `Shovel`); np. `Pielęgnacja: Podlewanie`, a dla `wycinka/wycinka` samo `Wycinka`.
+- `PlantIdentity({ type, code, speciesPolishName, speciesCultivar?, speciesLatinName?, size? })` — `PlantBadge` + czytelna pełna nazwa gatunku (przez `speciesLabel()`), opcjonalnie łacina.
+- Rozmiary `sm | md | lg` (`lg` dla tabletu). Kolory i etykiety biorą się z `types/domain.ts` — nie duplikuj ich.
+
+### Izolacja mapy wykonawcy per aktywny Tab — `client/src/features/contractor/useContractorMapFilter.ts`
+`useContractorMapFilter({ tasks, trees, userId, tab })` zwraca `{ todoTasks, doneTasks, tabTasks, mapTrees, markerVariant, taskForTree }`:
+- Najpierw izolacja: tylko zadania z `assigned_to === currentUser.id` (serwer filtruje to samo w `GET /api/tasks`; hook jest drugą warstwą).
+- `TAB_STATUSES`: tab `todo` = `assigned` + `rejected`, tab `done` = `pending_approval` + `approved`.
+- `mapTrees` = rośliny z `GET /api/trees`, które mają co najmniej jedno zadanie z aktywnego taba. Inne drzewa miasta nie trafiają na mapę wykonawcy.
+- `markerVariant`: `todo` → `'status'` (zwykłe `TreeMarker`, kolor wg `trees.status`, standardowa `MapLegend`); `done` → `'completed'` — `ContractorPage` podaje `TreeMap` pustą listę `trees` i renderuje jako dzieci `CompletedTreeMarker` (jednolity stalowo-morski `#2f7f86` z ✓, CSS w `contractor-map.css` rozszerza `.tree-marker`) oraz `CompletedMapLegend` zamiast legendy statusów.
+- `taskForTree(treeId)` — klik w marker zaznacza odpowiadające mu zadanie z aktywnego taba. Zmiana taba czyści zaznaczenie.
+- Moduł mapy Osoby A (`features/map/*`) nie zna ról ani tabów — wykonawca korzysta tylko z publicznych propsów `TreeMap` (`trees`, `selectedTreeId`, `onTreeClick`, `showLegend`, `children`).
+
+### Feedback przy odrzuceniu
+- **Urzędnik** — `client/src/features/approval-queue/RejectionReasonField.tsx`: po kliknięciu „Odrzuć / Do poprawy” w `ReviewDialog` pokazuje się pole „Opisz dokładnie, co zostało wykonane nieprawidłowo (informacja dla wykonawcy)” oraz chipy `REJECTION_HINTS` (np. „Brak wymaganej warstwy kory”, „Niewystarczające podlanie”, „Krzywo wbity palik”, „Nieprawidłowe zdjęcie”). Chip dopisuje lub usuwa swoją linię w treści; wysyłany jest zwykły tekst w `POST /api/tasks/:id/reject { reason }`.
+- **Wykonawca** — `client/src/features/contractor/RejectionFeedbackBox.tsx` (`{ task, onShowOnMap?, className? }`): czerwono-pomarańczowy boks dla zadań `rejected` na liście i w dialogu wykonania. Zawiera nagłówek „ZWRÓCONO DO POPRAWY PRZEZ URZĘDNIKA” z `reviewed_by_name` i `reviewed_at`, pogrubioną treść `official_rejection_reason` („Co wymaga poprawy wg Urzędu”), adres, `tree_plot_number`, współrzędne GPS (`lat, lng`, 6 miejsc po przecinku) i przycisk „Pokaż na mapie”, który centruje mapę na roślinie.
+- Serwer (`routes/tasks.ts`, `TASK_LIST_SQL`) dołącza do każdego wiersza `GET /api/tasks` pola `tree_plot_number` oraz `reviewed_by_name` (join `users` po `reviewed_by`). Pola wrażliwe są dalej usuwane przez `sanitizeForRole`.
+
+### Mapa plików Osoby B
+```
+client/src/components/shared/PlantBadge.tsx        # PlantBadge, TaskCategoryChip, PlantIdentity
+client/src/features/contractor/
+  ContractorPage.tsx           # układ tabletu, taby, spina hook z TreeMap
+  useContractorMapFilter.ts    # izolacja zadań/roślin + wariant markerów per tab
+  TaskList.tsx                 # karty zadań (PlantIdentity + TaskCategoryChip + RejectionFeedbackBox)
+  RejectionFeedbackBox.tsx     # uwagi urzędnika + lokalizacja + „Pokaż na mapie”
+  CompletedTreeMarker.tsx      # marker „wykonane” (✓, #2f7f86)
+  CompletedMapLegend.tsx       # legenda mapy w tabie „Wykonane”
+  contractor-map.css           # .tree-marker--completed, .tree-marker__check
+  CompleteTaskDialog.tsx       # zgłoszenie wykonania (pokazuje też boks odrzucenia)
+  types.ts                     # ContractorTask (+ tree_plot_number, reviewed_by_name)
+client/src/features/approval-queue/
+  ApprovalQueuePage.tsx        # kolejka + MUTEX (PlantBadge + TaskCategoryChip)
+  ReviewDialog.tsx             # decyzja urzędnika
+  RejectionReasonField.tsx     # pole uwag + chipy podpowiedzi
+  useApprovalQueue.ts, types.ts
+```

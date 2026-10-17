@@ -7,10 +7,12 @@ export interface ContractorTask extends Task {
   tree_latitude: number;
   tree_longitude: number;
   tree_address: string | null;
+  tree_plot_number: string | null;
   tree_status: 'green' | 'yellow' | 'red' | 'blue';
   species_polish_name: string;
   species_latin_name: string;
   species_cultivar: string | null;
+  reviewed_by_name: string | null;
 }
 
 export const DEMO_PHOTOS = [

@@ -1,0 +1,15 @@
+/* Extends .tree-marker from features/map/map.css (loaded by TreeMap). */
+
+.tree-marker--completed {
+  --tree-color: #2f7f86;
+}
+
+.tree-marker__check {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font: 900 11px/1 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
