@@ -7,9 +7,7 @@ import { Button } from '@/components/shared/Button';
 import { ErrorMessage } from '@/components/shared/Feedback';
 import { TabletFrame } from '@/components/shared/TabletFrame';
 import { TreeMap } from '@/features/map/TreeMap';
-import { useTrees } from '@/features/map/useTrees';
 import { useIosKeyboardFix, useLeafletViewportRestore } from '@/hooks/useIosKeyboardFix';
-import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { TreeListItem } from '@/types/domain';
 import { CompletedMapLegend } from './CompletedMapLegend';
@@ -17,7 +15,8 @@ import { CompletedTreeMarker } from './CompletedTreeMarker';
 import { CompleteTaskDialog } from './CompleteTaskDialog';
 import { TaskList } from './TaskList';
 import type { ContractorTask } from './types';
-import { useContractorMapFilter, type ContractorTab } from './useContractorMapFilter';
+import { useContractorLiveTasks } from './useContractorLiveTasks';
+import type { ContractorTab } from './useContractorMapFilter';
 
 const FRAME_KEY = 'tree-monitor:tablet-frame';
 
@@ -49,34 +48,15 @@ export function ContractorPage({ standalone = false, header }: ContractorPagePro
   useIosKeyboardFix();
   const { user, logout } = useCurrentUser();
   const navigate = useNavigate();
-  const { trees, error, reload: reloadTrees } = useTrees();
-  const [tasks, setTasks] = useState<ContractorTask[]>([]);
-  const [tasksError, setTasksError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<ContractorTask | null>(null);
   const [executing, setExecuting] = useState<ContractorTask | null>(null);
   const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; key: string } | null>(null);
   const [framed, setFramed] = useState(() => sessionStorage.getItem(FRAME_KEY) !== 'full');
   const [tab, setTab] = useState<ContractorTab>('todo');
 
-  const loadTasks = useCallback(async () => {
-    try {
-      setTasks(await api.get<ContractorTask[]>('/api/tasks'));
-      setTasksError(null);
-    } catch (e) {
-      setTasksError(e instanceof Error ? e.message : 'Nie udało się pobrać zadań.');
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadTasks();
-  }, [loadTasks]);
-
-  const { todoTasks, doneTasks, tabTasks, mapTrees, markerVariant, taskForTree } = useContractorMapFilter({
-    tasks,
-    trees,
-    userId: user?.id,
-    tab,
-  });
+  // Polls every 2 s in the background (no spinner), tasks sorted newest-first.
+  const { todoTasks, doneTasks, tabTasks, mapTrees, markerVariant, taskForTree, error, reload } =
+    useContractorLiveTasks({ userId: user?.id, tab });
 
   const selectTask = (task: ContractorTask) => {
     setSelectedTask(task);
@@ -101,8 +81,7 @@ export function ContractorPage({ standalone = false, header }: ContractorPagePro
   const onCompleted = () => {
     setExecuting(null);
     setSelectedTask(null);
-    void loadTasks();
-    void reloadTrees();
+    void reload();
   };
 
   const toggleFrame = () => {
@@ -181,7 +160,7 @@ export function ContractorPage({ standalone = false, header }: ContractorPagePro
                   ))}
                 </div>
                 <div className="flex-1 overflow-y-auto p-3">
-                  {(error || tasksError) && <ErrorMessage className="mb-3">{error ?? tasksError}</ErrorMessage>}
+                  {error && <ErrorMessage className="mb-3">{error}</ErrorMessage>}
                   <TaskList
                     tasks={tabTasks}
                     mode={tab}

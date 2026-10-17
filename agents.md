@@ -373,6 +373,12 @@ Zamiast surowych zapisów typu `D6 · Dąb` używaj wyłącznie tych komponentó
 - Po „Zgłoś wykonanie” widok zostaje na zakładce „Do wykonania” (nie przeskakuje na „Wykonane”) — zgłoszone zadanie po prostu znika z listy.
 - Moduł mapy Osoby A (`features/map/*`) nie zna ról ani tabów — wykonawca korzysta tylko z publicznych propsów `TreeMap` (`trees`, `selectedTreeId`, `onTreeClick`, `showLegend`, `children`).
 
+### Live-sync i sortowanie zadań wykonawcy — `client/src/features/contractor/useContractorLiveTasks.ts`
+`useContractorLiveTasks({ userId, tab, intervalMs? })` to jedyne źródło danych widoku wykonawcy (laptop `/contractor` i iPad `/ipad` — oba renderują `ContractorPage`). Zwraca to samo co `useContractorMapFilter` plus `{ error, loaded, reload }`.
+- **Polling co 2 s** (`CONTRACTOR_POLL_INTERVAL_MS = 2000`): równolegle `GET /api/tasks` + `GET /api/trees`. Działa cicho — bez spinnera, bez czyszczenia danych przy błędzie, bez nakładających się żądań (`inFlight`), pauzuje przy ukrytej karcie (`document.hidden`) i odświeża od razu po powrocie. Stan zmienia się tylko, gdy payload faktycznie się zmienił (porównanie JSON), więc otwarty modal „Wykonaj zadanie”, wpisany komentarz, zaznaczenie i pozycja mapy nie są resetowane.
+- **Sortowanie DESC (najnowsze na górze)** — `sortTasksNewestFirst()` / `taskSortTime()`: „Do wykonania” (`assigned` + `rejected`) wg `reviewed_at` (dla zwróconych do poprawy) lub `created_at`; „Wykonane / W weryfikacji” (`pending_approval` + `approved`) wg `completed_at`. Remis rozstrzyga `id`. Sortowanie jest przed `useContractorMapFilter`, więc `taskForTree` i listy zachowują kolejność.
+- Efekt: nowe zadanie zlecone / odrzucone przez urzędnika pojawia się na górze listy i na mapie wykonawcy w ≤2 s. Po „Zgłoś wykonanie” `ContractorPage` woła `reload()`.
+
 ### Feedback przy odrzuceniu
 - **Urzędnik** — `client/src/features/approval-queue/RejectionReasonField.tsx`: po kliknięciu „Odrzuć / Do poprawy” w `ReviewDialog` pokazuje się pole „Opisz dokładnie, co zostało wykonane nieprawidłowo (informacja dla wykonawcy)” oraz chipy `REJECTION_HINTS` (np. „Brak wymaganej warstwy kory”, „Niewystarczające podlanie”, „Krzywo wbity palik”, „Nieprawidłowe zdjęcie”). Chip dopisuje lub usuwa swoją linię w treści; wysyłany jest zwykły tekst w `POST /api/tasks/:id/reject { reason }`.
 - **Wykonawca** — `client/src/features/contractor/RejectionFeedbackBox.tsx` (`{ task, onShowOnMap?, className? }`): czerwono-pomarańczowy boks dla zadań `rejected` na liście i w dialogu wykonania. Zawiera nagłówek „ZWRÓCONO DO POPRAWY PRZEZ URZĘDNIKA” z `reviewed_by_name` i `reviewed_at`, pogrubioną treść `official_rejection_reason` („Co wymaga poprawy wg Urzędu”), adres, `tree_plot_number`, współrzędne GPS (`lat, lng`, 6 miejsc po przecinku) i przycisk „Pokaż na mapie”, który centruje mapę na roślinie.
@@ -413,6 +419,7 @@ client/src/components/shared/PlantBadge.tsx        # PlantBadge, TaskCategoryChi
 client/src/features/contractor/
   ContractorPage.tsx           # układ tabletu, taby, spina hook z TreeMap
   useContractorMapFilter.ts    # izolacja zadań/roślin + wariant markerów per tab
+  useContractorLiveTasks.ts    # polling 2 s (zadania + drzewa) + sortowanie DESC, używa useContractorMapFilter
   TaskList.tsx                 # karty zadań (PlantIdentity + TaskCategoryChip + RejectionFeedbackBox)
   RejectionFeedbackBox.tsx     # uwagi urzędnika + lokalizacja + „Pokaż na mapie”
   CompletedTreeMarker.tsx      # marker „wykonane” (✓, #2f7f86)
