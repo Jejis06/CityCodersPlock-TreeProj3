@@ -99,6 +99,12 @@ treesRouter.get('/', (req, res) => {
     params.contractorId = contractorId;
   }
 
+  const address = queryString(req.query.address);
+  if (address) {
+    where.push("t.address LIKE :address ESCAPE '\\'");
+    params.address = `%${address.replace(/[\\%_]/g, '\\$&')}%`;
+  }
+
   const taskCategory = queryString(req.query.task_category);
   if (taskCategory) {
     if (!isTaskCategory(taskCategory)) throw new HttpError(400, 'Nieprawidłowa kategoria zadań.');

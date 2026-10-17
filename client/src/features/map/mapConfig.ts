@@ -2,6 +2,7 @@ import type { LatLngTuple, WMSParams } from 'leaflet';
 
 export const MAP_CENTER: LatLngTuple = [52.5463, 19.6885];
 export const MAP_ZOOM = 17;
+export const MAP_MIN_ZOOM = 10;
 export const MAP_MAX_ZOOM = 21;
 
 export const GEOPORTAL_ATTRIBUTION = 'GUGiK Geoportal.gov.pl';
@@ -18,17 +19,18 @@ export interface WmsLayerConfig {
 
 export const BASE_LAYERS: WmsLayerConfig[] = [
   {
-    name: 'Geoportal - Ortofotomapa HD',
-    url: 'https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution',
-    params: { layers: 'Raster', format: 'image/jpeg', transparent: false, version: '1.3.0' },
+    // Clean, uniform street basemap (does not change style between zoom levels, unlike TOPO).
+    name: 'Geoportal - Mapa Uliczna (GUGiK BaseMap)',
+    url: 'https://mapy.geoportal.gov.pl/wss/ext/OSM/BaseMap/service',
+    params: { layers: 'osm', format: 'image/png', transparent: false, version: '1.1.1' },
     checked: true,
     attribution: GEOPORTAL_ATTRIBUTION,
     zIndex: 1,
   },
   {
-    name: 'Geoportal - Mapa Topograficzna (TOPO)',
-    url: 'https://mapy.geoportal.gov.pl/wss/service/img/guest/TOPO/MapServer/WMSServer',
-    params: { layers: 'Raster', format: 'image/png', transparent: false },
+    name: 'Geoportal - Ortofotomapa HD',
+    url: 'https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution',
+    params: { layers: 'Raster', format: 'image/jpeg', transparent: false, version: '1.3.0' },
     attribution: GEOPORTAL_ATTRIBUTION,
     zIndex: 1,
   },
@@ -40,6 +42,18 @@ export const KIEG_OVERLAY: WmsLayerConfig = {
   params: { layers: 'dzialki,numery_dzialek,budynki', format: 'image/png', transparent: true },
   checked: true,
   zIndex: 10,
+};
+
+export const KIUT_OVERLAY: WmsLayerConfig = {
+  name: 'Geoportal - Uzbrojenie terenu (KIUT)',
+  url: 'https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzbrojeniaTerenu',
+  params: {
+    layers:
+      'przewod_wodociagowy,przewod_kanalizacyjny,przewod_gazowy,przewod_elektroenergetyczny,przewod_cieplowniczy,przewod_telekomunikacyjny',
+    format: 'image/png',
+    transparent: true,
+  },
+  zIndex: 11,
 };
 
 export const CAD_OVERLAY_NAME = 'Podkład projektowy CAD/DXF i Raster (Lokalny)';

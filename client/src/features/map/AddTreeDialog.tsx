@@ -1,5 +1,5 @@
 import { Hash, Lock, MapPin, Save } from 'lucide-react';
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from '@/components/shared/Button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/shared/Dialog';
 import { ErrorMessage, Spinner } from '@/components/shared/Feedback';
@@ -17,6 +17,7 @@ import {
   type TreeStatus,
 } from '@/types/domain';
 import { SpeciesCombobox } from './SpeciesCombobox';
+import type { ReverseGeocodeResult } from './useReverseGeocode';
 
 export interface LatLng {
   lat: number;
@@ -28,14 +29,22 @@ interface AddTreeDialogProps {
   position: LatLng | null;
   onClose: () => void;
   onCreated: (tree: TreeListItem) => void;
+  /** Parcel + address for `position` (GET /api/geocode/reverse); prefills address and plot number. */
+  geocode?: { data: ReverseGeocodeResult | null; loading: boolean; error: string | null };
 }
 
-export function AddTreeDialog({ position, onClose, onCreated }: AddTreeDialogProps) {
+export function AddTreeDialog({ position, onClose, onCreated, geocode }: AddTreeDialogProps) {
   return (
     <Dialog open={position !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl">
         {position && (
-          <AddTreeForm key={`${position.lat},${position.lng}`} position={position} onCreated={onCreated} onCancel={onClose} />
+          <AddTreeForm
+            key={`${position.lat},${position.lng}`}
+            position={position}
+            onCreated={onCreated}
+            onCancel={onClose}
+            geocode={geocode}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -73,10 +82,12 @@ function AddTreeForm({
   position,
   onCreated,
   onCancel,
+  geocode,
 }: {
   position: LatLng;
   onCreated: (tree: TreeListItem) => void;
   onCancel: () => void;
+  geocode?: AddTreeDialogProps['geocode'];
 }) {
   const id = useId();
   const [latitude, setLatitude] = useState(position.lat.toFixed(6));
@@ -92,6 +103,16 @@ function AddTreeForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nextCode = useNextCode(type);
+
+  // Prefill from the geocoder, but never overwrite what the official has typed.
+  const addressTouched = useRef(false);
+  const plotTouched = useRef(false);
+  const geocodeData = geocode?.data ?? null;
+  useEffect(() => {
+    if (!geocodeData) return;
+    if (!addressTouched.current && geocodeData.address) setAddress(geocodeData.address);
+    if (!plotTouched.current && geocodeData.plot_number) setPlotNumber(geocodeData.plot_number);
+  }, [geocodeData]);
 
   const changeType = (next: PlantType) => {
     setType(next);
@@ -209,7 +230,10 @@ function AddTreeForm({
             id={`${id}-address`}
             placeholder="np. Stary Rynek, Płock"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={(e) => {
+              addressTouched.current = true;
+              setAddress(e.target.value);
+            }}
           />
         </Field>
         <Field label="Nr działki ewidencyjnej" htmlFor={`${id}-plot`} className="col-span-2 sm:col-span-1">
@@ -217,8 +241,23 @@ function AddTreeForm({
             id={`${id}-plot`}
             placeholder="np. 146201_1.0001.123/4"
             value={plotNumber}
-            onChange={(e) => setPlotNumber(e.target.value)}
+            onChange={(e) => {
+              plotTouched.current = true;
+              setPlotNumber(e.target.value);
+            }}
           />
+          {geocode?.loading && (
+            <span className="flex items-center gap-1.5 text-xs text-slate-500">
+              <Spinner className="size-3" /> Pobieranie działki i adresu z GUGiK…
+            </span>
+          )}
+          {geocodeData?.parcel_label && (
+            <span className="text-xs text-emerald-700">
+              {geocodeData.parcel_label}
+              {geocodeData.precinct ? `, obręb ${geocodeData.precinct}` : ''}
+            </span>
+          )}
+          {geocode?.error && <span className="text-xs text-amber-700">{geocode.error} Uzupełnij ręcznie.</span>}
         </Field>
 
         <Field label="Rok posadzenia" htmlFor={`${id}-year`}>

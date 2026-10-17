@@ -8,7 +8,7 @@ import { CadUploadControl } from './cad/CadUploadControl';
 import { useCadLayer } from './cad/useCadLayer';
 import { MapLayers } from './MapLayers';
 import { MapLegend } from './MapLegend';
-import { MAP_CENTER, MAP_MAX_ZOOM, MAP_ZOOM } from './mapConfig';
+import { MAP_CENTER, MAP_MAX_ZOOM, MAP_MIN_ZOOM, MAP_ZOOM } from './mapConfig';
 import { PendingTreeMarker } from './PendingTreeMarker';
 import { TreeMarker } from './TreeMarker';
 
@@ -22,6 +22,8 @@ export interface TreeMapProps {
   /** Temporary marker for a plant that is being added (not saved yet). */
   pendingPosition?: { lat: number; lng: number } | null;
   showLegend?: boolean;
+  /** Extra classes for the legend, e.g. to lift it above a widget in the bottom-left corner. */
+  legendClassName?: string;
   showCadControl?: boolean;
   layersCollapsed?: boolean;
   className?: string;
@@ -52,6 +54,7 @@ export function TreeMap({
   addMode = false,
   pendingPosition = null,
   showLegend = true,
+  legendClassName,
   showCadControl = true,
   layersCollapsed = false,
   className,
@@ -61,7 +64,7 @@ export function TreeMap({
 
   return (
     <div className={cn('relative isolate h-full w-full', addMode && 'tree-map--add-mode', className)}>
-      <MapContainer center={MAP_CENTER} zoom={MAP_ZOOM} maxZoom={MAP_MAX_ZOOM} className="h-full w-full">
+      <MapContainer center={MAP_CENTER} zoom={MAP_ZOOM} minZoom={MAP_MIN_ZOOM} maxZoom={MAP_MAX_ZOOM} className="h-full w-full">
         <MapLayers cad={cad.data} collapsed={layersCollapsed} />
         <MapResizeWatcher />
         {onMapClick && <MapClickHandler onClick={onMapClick} />}
@@ -72,7 +75,7 @@ export function TreeMap({
         {children}
       </MapContainer>
       {showCadControl && <CadUploadControl cad={cad} />}
-      {showLegend && <MapLegend />}
+      {showLegend && <MapLegend className={legendClassName} />}
     </div>
   );
 }

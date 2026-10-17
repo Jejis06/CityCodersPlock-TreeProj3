@@ -4,6 +4,7 @@ import multer from 'multer';
 import { config } from './lib/config.js';
 import { HttpError } from './lib/http.js';
 import { currentUser } from './middleware/currentUser.js';
+import { geocodeRouter } from './routes/geocode.js';
 import { speciesRouter } from './routes/species.js';
 import { tasksRouter } from './routes/tasks.js';
 import { treesRouter } from './routes/trees.js';
@@ -26,6 +27,7 @@ export function createApp() {
   // Everything below requires x-user-id
   app.use('/api', currentUser);
   app.use('/api/species', speciesRouter);
+  app.use('/api/geocode', geocodeRouter);
   app.use('/api/trees', treesRouter);
   app.use('/api/tasks', tasksRouter);
   app.use('/api/uploads', uploadsRouter);

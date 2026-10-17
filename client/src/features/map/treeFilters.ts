@@ -6,6 +6,9 @@ export interface TreeFilters {
   species: Species | null;
   plantingYear: number | null;
   taskCategory: TaskCategory | null;
+  contractorId: string | null;
+  /** Street / address fragment (GET /api/trees?address=). */
+  address: string | null;
 }
 
 export const EMPTY_TREE_FILTERS: TreeFilters = {
@@ -14,6 +17,8 @@ export const EMPTY_TREE_FILTERS: TreeFilters = {
   species: null,
   plantingYear: null,
   taskCategory: null,
+  contractorId: null,
+  address: null,
 };
 
 export function hasActiveFilters(filters: TreeFilters): boolean {
@@ -22,7 +27,9 @@ export function hasActiveFilters(filters: TreeFilters): boolean {
     filters.type !== null ||
     filters.species !== null ||
     filters.plantingYear !== null ||
-    filters.taskCategory !== null
+    filters.taskCategory !== null ||
+    filters.contractorId !== null ||
+    filters.address !== null
   );
 }
 
@@ -34,6 +41,8 @@ export function treeFiltersToQuery(filters: TreeFilters): string {
   if (filters.species) params.set('species_id', String(filters.species.id));
   if (filters.plantingYear !== null) params.set('planting_year', String(filters.plantingYear));
   if (filters.taskCategory) params.set('task_category', filters.taskCategory);
+  if (filters.contractorId) params.set('contractor_id', filters.contractorId);
+  if (filters.address) params.set('address', filters.address);
   const query = params.toString();
   return query ? `?${query}` : '';
 }

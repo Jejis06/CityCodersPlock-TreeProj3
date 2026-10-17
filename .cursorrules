@@ -49,9 +49,10 @@ Baza tworzy się automatycznie przy pierwszym starcie serwera, jeśli pliku nie 
 
 | Typ | Nazwa w UI | URL | Parametry |
 |-----|-----------|-----|-----------|
-| BaseLayer (domyślna, `checked`) | Geoportal - Ortofotomapa HD | `https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution` | `layers="Raster"`, `format="image/jpeg"`, `transparent={false}`, `version="1.3.0"`, `maxZoom={21}`, `attribution="GUGiK Geoportal.gov.pl"` |
-| BaseLayer | Geoportal - Mapa Topograficzna (TOPO) | `https://mapy.geoportal.gov.pl/wss/service/img/guest/TOPO/MapServer/WMSServer` | `layers="Raster"`, `format="image/png"`, `transparent={false}`, `maxZoom={21}`, `attribution="GUGiK Geoportal.gov.pl"` |
+| BaseLayer (domyślna, `checked`) | Geoportal - Mapa Uliczna (GUGiK BaseMap) | `https://mapy.geoportal.gov.pl/wss/ext/OSM/BaseMap/service` | `layers="osm"`, `format="image/png"`, `transparent={false}`, `version="1.1.1"`, `minZoom={10}`, `maxZoom={21}`, `attribution="GUGiK Geoportal.gov.pl"` (czysty podkład uliczny, nie zmienia stylu przy zoomie; zastąpił TOPO) |
+| BaseLayer | Geoportal - Ortofotomapa HD | `https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution` | `layers="Raster"`, `format="image/jpeg"`, `transparent={false}`, `version="1.3.0"`, `maxZoom={21}`, `attribution="GUGiK Geoportal.gov.pl"` |
 | Overlay (domyślnie `checked`) | Geoportal - Działki i Budynki (KIEG) | `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow` | `layers="dzialki,numery_dzialek,budynki"`, `format="image/png"`, `transparent={true}`, `maxZoom={21}` |
+| Overlay (domyślnie wyłączony) | Geoportal - Uzbrojenie terenu (KIUT) | `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzbrojeniaTerenu` | `layers="przewod_wodociagowy,przewod_kanalizacyjny,przewod_gazowy,przewod_elektroenergetyczny,przewod_cieplowniczy,przewod_telekomunikacyjny"`, `format="image/png"`, `transparent={true}`, `maxZoom={21}` (moduł `KiutOverlay.tsx`: wpis w LayersControl + przycisk szybkiego włączenia + legenda) |
 | Overlay | Podkład projektowy CAD/DXF i Raster (Lokalny) | lokalny (`CadOverlay.tsx`) | wektorowy projekt Starego Rynku + przycisk "Wgraj podkład" (`.dxf`, `.geojson`/`.json`, `.png`/`.jpg`/`.webp`) |
 
 - **Uwaga techniczna (sprawdzone):** usługa ORTO losowo zwraca `404` dla ok. połowy poprawnych żądań `GetMap` (niezależnie od wersji WMS) — kolejna próba zwykle się udaje. Dlatego `MapLayers.tsx` ma handler `tileerror`, który ponawia pobranie kafla (do 10 razy, z rosnącym opóźnieniem do 2 s). Nie usuwaj go. Wszystkie trzy usługi działają w `EPSG:3857`. Parametry WMS (`layers`, `format`, `transparent`, `version`) przekazujemy przez prop `params` komponentu `WMSTileLayer`.
@@ -178,7 +179,9 @@ Wszystkie endpointy (poza `/api/health` i `/api/users`) wymagają nagłówka `x-
 | GET  | `/api/health` | — | healthcheck |
 | GET  | `/api/users` | — | 3 konta do ekranu wyboru ról |
 | GET  | `/api/species?q=&type=` | any | słownik gatunków (wyszukiwanie po nazwie PL/łacińskiej/odmianie) |
-| GET  | `/api/trees?species_id=&planting_year=&status=&contractor_id=&task_category=` | any | lista roślin do mapy (sanitizacja dla contractor) |
+| GET  | `/api/geocode/reverse?lat=&lng=` | official | działka z ULDK (numer, obręb, obrys jako GeoJSON) + najbliższy adres (GUGiK UUG) |
+| GET  | `/api/geocode/suggest?q=` | official | podpowiedzi adresów: ulice z bazy drzew + adresy w Płocku (GUGiK UUG) |
+| GET  | `/api/trees?species_id=&planting_year=&status=&contractor_id=&task_category=&address=` | any | lista roślin do mapy (sanitizacja dla contractor) |
 | GET  | `/api/trees/next-code?type=tree\|shrub` | official | podgląd kolejnego kodu |
 | GET  | `/api/trees/:id` | any | karta rośliny + gatunek + wykonawca + historia `tasks` |
 | POST | `/api/trees` | official | dodanie rośliny |
@@ -209,6 +212,7 @@ server/src/
   scripts/db-reset.ts      # npm run db:reset — wykonuje database/init.sql
   routes/users.ts          # Branch 0: GET /api/users (bez nagłówka)
   routes/species.ts        # Branch 0: GET /api/species?q=&type=
+  routes/geocode.ts        # Osoba A: GET /api/geocode/reverse, /api/geocode/suggest (ULDK + UUG GUGiK)
   routes/uploads.ts        # Branch 0: POST /api/uploads (multer -> server/uploads/)
   routes/trees.ts          # Osoba A (Branch 0 ma GET /api/trees z join gatunku i wykonawcy)
   routes/tasks.ts          # Osoba B (pusty router, już zamontowany pod /api/tasks)
@@ -274,6 +278,39 @@ Zasoby demo (w `client/public/demo/`, serwowane statycznie): `photos/*.svg` (zdj
 - Przed pushem: `npm run typecheck` (root) musi przechodzić.
 - Nowe zależności npm dodawaj tylko w swoim branchu i opisz w commicie; nie aktualizuj wersji istniejących pakietów.
 - Małe commity, opisowe wiadomości (`feat(map): ...`, `feat(queue): ...`, `fix(server): ...`). Przed merge: `git pull --rebase origin main`.
+
+---
+
+## Architektura: Moduły Osoby A (GIS & Karta Drzewa)
+
+Każdy element to osobny, wymienialny moduł (Feature-Sliced Design) w `client/src/features/map/` + osobny router serwera. Nie dopisujemy logiki do `TreeMap.tsx` / `OfficialMapPage.tsx` poza montowaniem modułów.
+
+### Backend — `server/src/routes/geocode.ts` (montowany w `app.ts`, rola `official`)
+- `GET /api/geocode/reverse?lat=&lng=` → `{ lat, lng, address, street, house_number, plot_number, parcel_number, parcel_label, precinct, commune, geometry }`.
+  - działka: GUGiK **ULDK** `GetParcelByXY` (`result=teryt,parcel,region,commune,geom_wkt`, `srid=4326`), `geom_wkt` konwertowany na GeoJSON `Polygon`/`MultiPolygon` (WGS84, kolejność lng,lat); `plot_number` = pełny identyfikator ewidencyjny (np. `146201_1.0008.512/9`), `parcel_label` = `dz. 512/9`,
+  - adres: GUGiK **Usługa Lokalizacji (UUG)** `GetAddressReverse` (ulica + numer, Płock),
+  - jedna z usług może paść — zwracamy część wyniku; obie padły → `502`. Współrzędne poza obszarem Płocka → `400`.
+- `GET /api/geocode/suggest?q=` (min. 2 znaki) → lista `{ label, detail, source: 'trees'|'gugik', filter_value, lat, lng }`: najpierw ulice z tabeli `trees` (`filter_value` = ulica do filtra), potem adresy UUG `GetAddress`.
+- `GET /api/trees?...&address=` — dodatkowy filtr `LIKE` po adresie (ulicy).
+
+### Warstwy mapy (`mapConfig.ts`, `MapLayers.tsx`, `GeoportalWms.tsx`)
+- Podkłady: **Mapa Uliczna (GUGiK BaseMap, domyślna)** i **Ortofotomapa HD**; TOPO usunięte. `minZoom={10}`, `maxZoom={21}`.
+- Nakładki: KIEG (działki/budynki), **KIUT** (uzbrojenie terenu), CAD lokalny.
+- `GeoportalWms.tsx` — wspólny `WMSTileLayer` z ponawianiem kafli (`tileerror`), reużywany przez moduły.
+
+### Komponenty klienta (`client/src/features/map/`)
+| Plik | Rola |
+|------|------|
+| `KiutOverlay.tsx` | warstwa KIUT w `LayersControl` + przycisk "Uzbrojenie terenu: Rury / Gaz / Prąd" + legenda (żółty = gaz, niebieski = wodociąg, brązowy = kanalizacja, czerwony = prąd); renderowany wewnątrz `<LayersControl>` |
+| `ParcelHighlighter.tsx` | rysuje obrys działki (GeoJSON) — `geometry` z `/api/geocode/reverse` |
+| `useReverseGeocode.ts` | hook + typy odpowiedzi geokodera (cache po współrzędnych) |
+| `ViewportStatsWidget.tsx` | pływający licznik w lewym dolnym rogu: "W widoku" (`map.getBounds()`) vs "Wg filtra" |
+| `AddressAutocomplete.tsx` | "Szukaj po ulicy / adresie" (na górze filtrów); wybór → filtr `address` + `flyTo` |
+| `MapFlyTo.tsx` | `flyTo` na `FlyTarget` (z `nonce`) |
+| `MapFiltersPanel.tsx` | komplet filtrów w lewym panelu: adres, status, typ, gatunek, rok, kategoria zadań, wykonawca |
+| `MapFilterBar.tsx` | odchudzony pasek nad mapą (licznik + "Dodaj roślinę") |
+
+Przepływ: klik w mapę (tryb dodawania) lub wybór drzewa → `OfficialMapPage` pobiera `useReverseGeocode(punkt)` → `ParcelHighlighter` podświetla działkę, a `AddTreeDialog` (prop `geocode`) uzupełnia adres i nr działki (nie nadpisuje ręcznych zmian). Lewy panel nie zawiera już sekcji "Karta ewidencyjna" (karta otwiera się w Sheet po kliknięciu drzewa).
 
 ---
 
