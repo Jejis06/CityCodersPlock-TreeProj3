@@ -1,4 +1,4 @@
-import { ClipboardCheck, LogOut, Map as MapIcon, UserRound } from 'lucide-react';
+import { ClipboardCheck, LogOut, Map as MapIcon, TableProperties, UserRound } from 'lucide-react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { Badge } from '@/components/shared/Badge';
 import { Button } from '@/components/shared/Button';
@@ -7,10 +7,13 @@ import { ROLE_LABELS } from '@/types/domain';
 import { useCurrentUser } from '../CurrentUserContext';
 import { AppBrand } from './AppBrand';
 
-const navItems = [
-  { to: '/official', label: 'Mapa', icon: MapIcon, end: true },
-  { to: '/official/queue', label: 'Kolejka zatwierdzeń', icon: ClipboardCheck, end: false },
+/** Main working modes of the official: interactive map vs table/analytics/export view. */
+const modeItems = [
+  { to: '/official', label: 'Mapa Interaktywna', icon: MapIcon, end: true },
+  { to: '/official/list', label: 'Lista Drzew, Analizy i Eksport', icon: TableProperties, end: false },
 ];
+
+const navItems = [{ to: '/official/queue', label: 'Kolejka zatwierdzeń', icon: ClipboardCheck, end: false }];
 
 export function OfficialLayout() {
   const { user, logout } = useCurrentUser();
@@ -20,6 +23,24 @@ export function OfficialLayout() {
     <div className="flex h-full flex-col">
       <header className="z-10 flex h-16 shrink-0 items-center gap-6 border-b border-slate-200 bg-white px-5 shadow-sm">
         <AppBrand />
+        <nav aria-label="Tryb pracy" className="flex gap-1 rounded-xl bg-slate-100 p-1">
+          {modeItems.map(({ to, label, icon: Icon, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
+                  isActive ? 'bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-900',
+                )
+              }
+            >
+              <Icon className="size-4" />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
         <nav className="flex gap-1">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink

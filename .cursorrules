@@ -239,7 +239,7 @@ Konwencje serwera:
 ```
 client/src/
   main.tsx, index.css        # Branch 0: Tailwind v4 (@import 'tailwindcss'), alias '@/' -> src/
-  app/App.tsx                # Branch 0: routing (react-router): / , /official, /official/queue, /contractor
+  app/App.tsx                # Branch 0: routing (react-router): / , /official, /official/list, /official/queue, /contractor
   app/CurrentUserContext.tsx # Branch 0: useCurrentUser(), login/logout, sessionStorage, homePathForRole()
   app/RequireRole.tsx        # Branch 0: ochrona tras wg roli
   app/layouts/               # Branch 0: OfficialLayout (header + nawigacja), AppBrand
@@ -254,6 +254,7 @@ client/src/
   features/tree-card/        # Osoba A: TreeCardSheet (karta w Sheet, GET /api/trees/:id), TaskCreatorForm (POST /api/trees/:id/tasks), TaskTimeline
   features/approval-queue/   # Osoba B: ApprovalQueuePage (placeholder z Branch 0) -> kolejka, MUTEX, approve/reject
   features/contractor/       # Osoba B: ContractorPage (ramka tabletu + mapa z Branch 0) -> lista zadań, zgłaszanie wykonania
+  features/export-and-list/  # Osoba B: TreesListAndExportView (/official/list) — tabela, wykres gatunków, eksporty, wycinek mapy do PDF
 ```
 
 Komponenty mapy (`features/map`) muszą być reużywalne przez wykonawcę: `<TreeMap trees={...} onTreeClick={...} />` bez logiki ról w środku.
@@ -290,7 +291,7 @@ Zasoby demo (w `client/public/demo/`, serwowane statycznie): `photos/*.svg` (zdj
 
 ## Architektura: Moduły Osoby B (Wykonawca & Eksporty)
 
-Moduły z brancha `feat/contractor-isolation-and-visual-badges`. Zasada: jedna odpowiedzialność na plik, logika filtrowania w hookach, UI w małych komponentach.
+Moduły z branchy `feat/contractor-isolation-and-visual-badges` i `feat/list-view-and-advanced-exports`. Zasada: jedna odpowiedzialność na plik, logika filtrowania w hookach, UI w małych komponentach.
 
 ### Wspólne oznaczenia roślin i zadań — `client/src/components/shared/PlantBadge.tsx`
 Zamiast surowych zapisów typu `D6 · Dąb` używaj wyłącznie tych komponentów (listy zadań, kolejka urzędnika, dialogi, karty):
@@ -313,6 +314,34 @@ Zamiast surowych zapisów typu `D6 · Dąb` używaj wyłącznie tych komponentó
 - **Wykonawca** — `client/src/features/contractor/RejectionFeedbackBox.tsx` (`{ task, onShowOnMap?, className? }`): czerwono-pomarańczowy boks dla zadań `rejected` na liście i w dialogu wykonania. Zawiera nagłówek „ZWRÓCONO DO POPRAWY PRZEZ URZĘDNIKA” z `reviewed_by_name` i `reviewed_at`, pogrubioną treść `official_rejection_reason` („Co wymaga poprawy wg Urzędu”), adres, `tree_plot_number`, współrzędne GPS (`lat, lng`, 6 miejsc po przecinku) i przycisk „Pokaż na mapie”, który centruje mapę na roślinie.
 - Serwer (`routes/tasks.ts`, `TASK_LIST_SQL`) dołącza do każdego wiersza `GET /api/tasks` pola `tree_plot_number` oraz `reviewed_by_name` (join `users` po `reviewed_by`). Pola wrażliwe są dalej usuwane przez `sanitizeForRole`.
 
+### Tryb „Lista Drzew, Analizy i Eksport” — `client/src/features/export-and-list/`
+Całkowicie niezależny moduł (nie modyfikuje `features/map/*`; z modułu Osoby A używa tylko `TreeMap`, `useTrees`, `mapConfig`).
+- **Przełącznik trybów** w `OfficialLayout`: segmentowy przełącznik „Mapa Interaktywna” (`/official`) ↔ „Lista Drzew, Analizy i Eksport” (`/official/list`, route w `App.tsx`); „Kolejka zatwierdzeń” jest osobnym linkiem obok.
+- **Dane** (`useInventoryData`): `GET /api/trees` bez filtrów + `GET /api/tasks`; filtrowanie tabeli odbywa się po stronie klienta (natychmiastowe). `toListTrees()` (`inventoryModel.ts`) dokłada pola pochodne (nie ma ich w bazie): `street` (adres bez numeru, np. „ul. Tumska”), `species_label`, `from_decision`, `decision_ref`.
+- **„Z decyzji”** — heurystyka bez zmian w schemacie: roślina jest „z decyzji”, jeśli `trees.notes` lub opis któregoś z jej zadań zawiera numer decyzji (`decyzja WOŚ.6131.12.2026` → `decision_ref = 'WOŚ.6131.12.2026'`) albo frazy „decyzj…”, „nasadzenie zastępcze”, „zezwolenie na usunięcie”. Jeśli kiedyś dojdzie kolumna w bazie, podmień tylko `detectDecision()`.
+- **Filtry** (`listFilters.ts` + `ListFilterBar.tsx`): ulica/adres z autouzupełnianiem (`AddressAutocomplete.tsx`, podpowiedzi ulic z licznikiem roślin, wyszukiwanie bez polskich znaków), gatunek, rok posadzenia, wykonawca (także „bez wykonawcy”), typ, status (chipy), decyzja (Wszystkie / Z decyzji / Bez decyzji). `describeListFilters()` daje opis filtrów do nagłówków raportów.
+- **Tabela** (`TreesDataTable.tsx`): sortowanie po kolumnach (kody naturalnie: D2 < D10, puste wartości zawsze na końcu), checkboxy (z „zaznacz wszystkie widoczne”), przypięty do prawej przycisk „Pokaż na mapie” (flyTo na osadzonej mapie `ListMapPanel`). Klik w marker przewija tabelę do wiersza.
+- **Wykres** (`SpeciesFrequencyChart.tsx`): SVG bez bibliotek, OX = gatunki, OY = ilość wystąpień dla przefiltrowanych danych (`speciesFrequency()`), max 20 słupków, drzewa `#047857` / krzewy `#7c3aed`; klik w słupek przełącza filtr gatunku.
+- **Wycinek mapy do PDF** (`MapAreaPdfSelector.tsx` jako dziecko `<TreeMap>` w `ListMapPanel`): przycisk „Zaznacz obszar na mapie do PDF” → przeciągnięcie prostokąta (na czas rysowania wyłączone `dragging`/`boxZoom`, Esc anuluje) → `MapAreaPdfDialog.tsx` „Eksport wycinka mapy do PDF”: podgląd zdjęcia, lista roślin w prostokącie, wybór podkładu (ORTO/TOPO) i KIEG, pole nazwy (`Mapa_Wycinek_Plock_RRRR-MM-DD.pdf`), przycisk „Wybierz miejsce zapisu i pobierz PDF”. Selector można osadzić w dowolnej `<TreeMap>` jedną linią: `<MapAreaPdfSelector trees={…} generatedBy={…} />`.
+- **Zdjęcie wycinka** (`mapAreaCapture.ts`): bez zrzutu DOM — jedno żądanie WMS `GetMap` na warstwę dla dokładnego BBOX w `EPSG:3857` (usługi GUGiK mają `Access-Control-Allow-Origin: *`), rysowanie na `canvas` markerów (styl jak `TreeMarker`), podziałki, strzałki N i atrybucji. ORTO losowo zwraca 404 → do 6 ponowień, a gdy nie odpowiada, automatyczny fallback na TOPO z ostrzeżeniem (PDF podaje faktycznie użyty podkład).
+- **Zapis plików** (`lib/saveFile.ts`): `saveFileWithPicker()` najpierw otwiera `window.showSaveFilePicker` (póki kliknięcie liczy się jako gest użytkownika), potem generuje plik; fallback = zwykłe pobranie (`<a download>`), także w iframe/Firefox/Safari. `buildFileName()` czyści nazwę i dokleja rozszerzenie.
+
+### Generatory eksportu — `ExportFormatGenerators.ts` + `formats/*`
+`EXPORT_FORMATS` to rejestr `{ id, label, extension, mimeType, description, pickerDescription, generate(ctx, baseName) }`; każdy generator to czysta funkcja `ExportContext → Blob` (`formats/exportTypes.ts`: `trees`, `species`, `generatedAt`, `generatedBy`, `filtersSummary`), ładowana leniwie (`import()`). **Nowy format = nowy plik w `formats/` + jeden wpis w `EXPORT_FORMATS`.** Panel `ExportPanel.tsx`: nazwa pliku (domyślnie `Raport_Zielen_Plock_RRRR-MM-DD`), zakres „Przefiltrowane (N)” / „Zaznaczone (M)”.
+
+| Format | Plik | Zawartość |
+|--------|------|-----------|
+| Excel `.xlsx` | `formats/xlsx.ts` | Ręcznie budowany OOXML (ZIP przez `fflate`). Arkusz 1 „Ewidencja Roślin” (kolumny z `formats/exportColumns.ts`, autofiltr, zamrożony nagłówek, WGS84 + PL-2000, nr umowy i finansowanie — dane tylko dla urzędnika). Arkusz 2 „Wykres Gatunków OX-OY” (nazwa arkusza nie może zawierać `/`): tabela gatunek/ilość + natywny wykres słupkowy Excela (`xl/charts/chart1.xml`). |
+| AutoCAD `.dxf` | `formats/dxf.ts` | ASCII DXF R12 (AC1009), warstwy `DRZEWA` (POINT + CIRCLE r=1,5 m + TEXT) i `KRZEWY` (POINT + kwadrat POLYLINE + TEXT), teksty: kod ewidencyjny + gatunek (znaki PL jako `\U+XXXX`). Współrzędne w metrach, PL-2000 strefa 7 (EPSG:2178), x = E, y = N. |
+| `.dwg` | — | Zamknięty format binarny Autodesk — nie generujemy go w przeglądarce. W UI jest instrukcja: otworzyć `.dxf` w AutoCAD/BricsCAD → „Zapisz jako .dwg”. |
+| GIS Shapefile `.zip` | `formats/shapefile.ts` | Point Shapefile: `.shp` + `.shx` + `.dbf` (dBASE III, UTF-8, pola ≤ 10 znaków: `KOD, TYP, GATUNEK, LACINA, ADRES, ULICA, DZIALKA, ROK, STATUS, STATUS_PL, WYKONAWCA, Z_DECYZJI, DECYZJA, LAT, LON`) + `.prj` (PUWG 1992, EPSG:2180) + `.cpg`. |
+| Raport `.pdf` | `formats/pdfReport.ts` | A4 poziomo (`jspdf` + `jspdf-autotable`): nagłówek UM Płocka, filtry, podsumowanie (liczby, statusy, „z decyzji”), wektorowy wykres gatunków + tabela gatunków, tabela roślin z kolorami statusów, stopki „Strona X z N”. |
+| Wycinek mapy `.pdf` | `formats/mapAreaPdf.ts` | Nagłówek UM Płocka, narożniki obszaru (WGS84 + PL-2000), zdjęcie wycinka, tabela roślin w obszarze. |
+
+- PDF: wbudowane fonty jsPDF nie mają polskich znaków — `formats/pdfShared.ts` osadza **DejaVu Sans** (paczka `dejavu-fonts-ttf`, import `?url`, pobierany dopiero przy pierwszym eksporcie PDF). Tam też wspólny nagłówek (`drawLetterhead`), stopki i styl tabel.
+- Układy współrzędnych (`lib/geodesy.ts`): odwzorowanie Gaussa-Krügera na GRS80 (PL-2000/7 i PUWG 1992), zgodne z `pyproj` z dokładnością < 1 mm.
+- Zależności dodane w tym branchu (`client/package.json`): `jspdf`, `jspdf-autotable`, `fflate`, `dejavu-fonts-ttf`.
+
 ### Mapa plików Osoby B
 ```
 client/src/components/shared/PlantBadge.tsx        # PlantBadge, TaskCategoryChip, PlantIdentity
@@ -331,4 +360,22 @@ client/src/features/approval-queue/
   ReviewDialog.tsx             # decyzja urzędnika
   RejectionReasonField.tsx     # pole uwag + chipy podpowiedzi
   useApprovalQueue.ts, types.ts
+client/src/features/export-and-list/
+  TreesListAndExportView.tsx   # główny kontener trybu „Lista Drzew, Analizy i Eksport” (/official/list)
+  useInventoryData.ts          # GET /api/trees + GET /api/tasks -> ListTree[]
+  inventoryModel.ts            # ListTree, toListTrees (ulica, „z decyzji”), speciesFrequency, compareTreeCodes
+  listFilters.ts               # ListFilters, applyListFilters, describeListFilters, STATUS_SHORT_LABELS
+  ListFilterBar.tsx            # pasek filtrów nad tabelą
+  AddressAutocomplete.tsx      # wyszukiwarka ulic z podpowiedziami
+  TreesDataTable.tsx           # tabela: sortowanie, checkboxy, „Pokaż na mapie”
+  SpeciesFrequencyChart.tsx    # wykres słupkowy OX: gatunki, OY: ilość
+  ExportPanel.tsx              # „Eksportuj przefiltrowane dane” (nazwa pliku, zakres, przyciski formatów)
+  ExportFormatGenerators.ts    # rejestr formatów EXPORT_FORMATS (lazy import generatorów)
+  ListMapPanel.tsx             # osadzona TreeMap (fit do filtrów, flyTo) + MapAreaPdfSelector
+  MapAreaPdfSelector.tsx       # rysowanie prostokąta na mapie kursorem
+  MapAreaPdfDialog.tsx         # modal „Eksport wycinka mapy do PDF”
+  mapAreaCapture.ts            # WMS GetMap -> canvas + markery (zdjęcie wycinka)
+  export-and-list.css          # kursor krzyżyka podczas zaznaczania
+  formats/                     # exportTypes, exportColumns, zip, xlsx, dxf, shapefile, pdfShared, pdfReport, mapAreaPdf
+  lib/                         # geodesy (PL-2000/7, PUWG 1992), saveFile (showSaveFilePicker + fallback)
 ```
