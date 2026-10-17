@@ -209,7 +209,7 @@ server/src/
   lib/db.ts                # node:sqlite (DatabaseSync), PRAGMA, queryAll/queryOne/execute, withTransaction(), nowIso()
   lib/http.ts              # HttpError(status, message, details?), getUser(req)
   lib/sanitize.ts          # sanitizeForRole(data, role) — głębokie usuwanie pól wrażliwych dla contractor
-  lib/constants.ts         # LOCK_TIMEOUT_MINUTES = 5, CONTRACTOR_ID, TASK_SUBCATEGORIES, TREE_STATUS_FOR_CATEGORY
+  lib/constants.ts         # LOCK_TIMEOUT_MINUTES = 5, CONTRACTOR_ID, TASK_SUBCATEGORIES, TREE_STATUS_FOR_CATEGORY, TASK_NEWEST_FIRST_ORDER
   lib/treeCode.ts          # nextTreeCode(type, year?) -> D{n}/{rok}, K{n}/{rok}
   middleware/currentUser.ts  # x-user-id -> req.user (401)
   middleware/requireRole.ts  # requireRole('official') (403)
@@ -255,7 +255,8 @@ client/src/
   app/pages/RoleSelectPage.tsx   # Branch 0: ekran wyboru 3 kont
   app/pages/OfficialMapPage.tsx  # Osoba A: strona mapy urzędnika (sidebar na filtry + TreeMap)
   lib/api.ts                 # Branch 0: api.get/post/patch/delete/upload, ApiError, assetUrl(); x-user-id automatycznie
-  lib/utils.ts               # Branch 0: cn(), formatDateTime()
+  lib/utils.ts               # Branch 0: cn(), formatDateTime(); Osoba A: taskActivityAt(), compareTasksNewestFirst()
+  hooks/useRealtimePolling.ts # Osoba A: globalny polling w tle co 3.5 s + reconcileById(), keepIfEqual()
   types/domain.ts            # Branch 0: typy + etykiety PL + kolory statusów + TASK_SUBCATEGORIES + speciesLabel()
   components/shared/         # Branch 0: Button (size="touch" dla tabletu), Card, Badge, FormControls (Input/Textarea/Select/Label),
                              #           Dialog, Sheet (radix), StatusDot, TabletFrame, Feedback (Spinner/ErrorMessage/EmptyState)
@@ -327,6 +328,16 @@ Wyizolowany moduł (bez logiki HTTP) zasilający bazę prawdziwymi lokalizacjami
   - `tasks` (wszystkie `assigned_to = CONTRACTOR_ID`, zgodne z regułami kolorów z §3): `red` → wycinka `assigned` ×3, potem `rejected`; `yellow` → `pending_approval` ×4 (w tym 1× Nasadzanie: Korowanie), potem pielęgnacja `assigned`; `blue` → Posadzenie `assigned` ×4, potem Palikowanie `rejected`; `green` → historia `approved` (co 3. roślina + Posadzenie dla drzew alertowych). Zadania wykonane mają zdjęcie z `/demo/photos/*.svg` i komentarz, odrzucone — powód.
 - **Zapis** `seedBdot10k()`: jedna transakcja; deterministyczne id (`bd010000-1462-4000-8000-{nr}` dla roślin, `bd01aaaa-1462-…` dla zadań) → **idempotentny**: istniejące punkty są pomijane, ponowne wywołanie przywraca tylko usunięte. Zwraca `{ source, teryt, parsed_points, inserted_trees, inserted_tasks, skipped_existing, total_trees, warranty_alert_trees }`.
 - **Wywołania:** `seedBdot10kIfSparse()` przy starcie serwera (`index.ts`) i po `npm run db:reset`, gdy w bazie jest < `BDOT10K_MIN_TREES = 40` roślin (świeży `init.sql` ma 10 → po seedzie 75); ręcznie: `POST /api/trees/seed-bdot10k` (`official`).
+
+### Live polling i sortowanie „najnowsze na górze” (`feat/live-polling-and-newest-first-sort`)
+- **Globalny mechanizm pollingu:** `client/src/hooks/useRealtimePolling.ts` — `useRealtimePolling(poll, { intervalMs = REALTIME_POLL_MS (3500), enabled })`. Ciche odświeżanie w tle co **3.5 s**; kolejny cykl startuje dopiero po zakończeniu poprzedniego (brak nakładających się żądań); stop, gdy `document.visibilityState === 'hidden'`, natychmiastowe odświeżenie po powrocie do karty. Hook nie robi pierwszego pobrania (robi to hook danych). Nie dodawaj własnych `setInterval` — używaj tego hooka.
+- **Aktualizacja bez resetowania UI:** poll nie włącza spinnera (`loading`), a stan scala się helperami z tego samego pliku: `reconcileById(prev, next)` (niezmienione elementy zachowują tożsamość → markery/wiersze się nie przerysowują; brak zmian = brak re-renderu) i `keepIfEqual(prev, next)` (obiekty bez `id`, np. karta drzewa). Modale, formularze, scroll i stan mapy (zoom/przesunięcie) zostają nietknięte.
+- **Gdzie działa:**
+  - Mapa główna (`OfficialMapPage`): `useTrees(filters, { live: true })` (oba zapytania: wszystkie + przefiltrowane) — kolory markerów zmieniają się w tle; `TreeMap` nie robi `fitBounds`, więc zoom i przesunięcie zostają. `useTrees()` bez opcji nie polluje (opt-in).
+  - Karta Drzewa (`useTreeDetails`): polling `GET /api/trees/:id`, gdy karta jest otwarta (`treeId !== null`) — nowe zgłoszenie wykonawcy ze zdjęciem i status pojawiają się po ≤ 3.5 s. `setDetails()` z hooka (wynik PATCH/POST) unieważnia trwające żądanie pollingu, żeby starsze dane nie nadpisały świeżej mutacji.
+  - Kolejka zatwierdzeń (`useApprovalQueue`, `QUEUE_POLL_MS = REALTIME_POLL_MS`), widok listy (`useInventoryData`: drzewa + `GET /api/tasks`) oraz lista zadań wykonawcy (`ContractorPage`: zadania + drzewa).
+- **Standard sortowania `DESC` (backend):** wszystkie listy zadań (`GET /api/tasks`, w tym kolejka `?status=pending_approval`, oraz historia `tasks` w `GET /api/trees/:id`) sortowane przez wspólną stałą `TASK_NEWEST_FIRST_ORDER` z `server/src/lib/constants.ts`: `ORDER BY COALESCE(k.completed_at, k.reviewed_at, k.created_at) DESC, k.created_at DESC, k.id`. Nowe zapytania o zadania (alias `k`) używają tej stałej.
+- **Standard sortowania `DESC` (frontend):** `compareTasksNewestFirst` / `taskActivityAt` w `client/src/lib/utils.ts` (ten sam klucz co serwer). Kolejka zatwierdzeń: nowo zgłoszone zadania zawsze na samej górze; „Dziennik pielęgnacji i historia prac” (`TaskTimeline`): od najnowszego wpisu na górze do najstarszego na dole.
 
 ### Warstwy mapy (`mapConfig.ts`, `MapLayers.tsx`, `GeoportalWms.tsx`)
 - Podkłady: **Mapa Uliczna (GUGiK BaseMap, domyślna)** i **Ortofotomapa HD**; TOPO usunięte. `minZoom={10}`, `maxZoom={21}`.

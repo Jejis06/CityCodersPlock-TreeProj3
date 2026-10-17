@@ -8,6 +8,7 @@ import { ErrorMessage } from '@/components/shared/Feedback';
 import { TabletFrame } from '@/components/shared/TabletFrame';
 import { TreeMap } from '@/features/map/TreeMap';
 import { useTrees } from '@/features/map/useTrees';
+import { reconcileById, useRealtimePolling } from '@/hooks/useRealtimePolling';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { TreeListItem } from '@/types/domain';
@@ -34,7 +35,7 @@ function FlyToTarget({ target }: { target: { lat: number; lng: number; key: stri
 export function ContractorPage() {
   const { user, logout } = useCurrentUser();
   const navigate = useNavigate();
-  const { trees, error, reload: reloadTrees } = useTrees();
+  const { trees, error, reload: reloadTrees } = useTrees(undefined, { live: true });
   const [tasks, setTasks] = useState<ContractorTask[]>([]);
   const [tasksError, setTasksError] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<ContractorTask | null>(null);
@@ -45,7 +46,8 @@ export function ContractorPage() {
 
   const loadTasks = useCallback(async () => {
     try {
-      setTasks(await api.get<ContractorTask[]>('/api/tasks'));
+      const result = await api.get<ContractorTask[]>('/api/tasks');
+      setTasks((prev) => reconcileById(prev, result));
       setTasksError(null);
     } catch (e) {
       setTasksError(e instanceof Error ? e.message : 'Nie udało się pobrać zadań.');
@@ -55,6 +57,8 @@ export function ContractorPage() {
   useEffect(() => {
     void loadTasks();
   }, [loadTasks]);
+
+  useRealtimePolling(loadTasks);
 
   const { todoTasks, doneTasks, tabTasks, mapTrees, markerVariant, taskForTree } = useContractorMapFilter({
     tasks,

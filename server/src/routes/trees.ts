@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   CONTRACTOR_ID,
   SENSITIVE_FIELDS,
+  TASK_NEWEST_FIRST_ORDER,
   TASK_SUBCATEGORIES,
   TREE_STATUS_FOR_CATEGORY,
   TREE_STATUSES,
@@ -395,7 +396,7 @@ const taskHistorySql = (role: Role) => {
     LEFT JOIN users ur ON ur.id = k.reviewed_by
     LEFT JOIN users ul ON ul.id = k.locked_by
    WHERE k.tree_id = :treeId
-   ORDER BY k.created_at DESC, k.id`;
+   ORDER BY ${TASK_NEWEST_FIRST_ORDER}`;
 };
 
 function loadTreeDetails(id: string, role: Role): TreeDetails {

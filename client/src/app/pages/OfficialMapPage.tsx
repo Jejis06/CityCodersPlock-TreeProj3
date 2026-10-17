@@ -39,8 +39,8 @@ function parseStoredGeometry(raw: string | null | undefined): ParcelGeometry | n
 
 export function OfficialMapPage() {
   const [filters, setFilters] = useState<TreeFilters>(EMPTY_TREE_FILTERS);
-  const all = useTrees();
-  const filtered = useTrees(filters);
+  const all = useTrees(undefined, { live: true });
+  const filtered = useTrees(filters, { live: true });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addMode, setAddMode] = useState(false);
   const [relocateMode, setRelocateMode] = useState(false);
