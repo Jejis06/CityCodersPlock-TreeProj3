@@ -9,6 +9,7 @@ import { useCadLayer } from './cad/useCadLayer';
 import { MapLayers } from './MapLayers';
 import { MapLegend } from './MapLegend';
 import { MAP_CENTER, MAP_MAX_ZOOM, MAP_ZOOM } from './mapConfig';
+import { PendingTreeMarker } from './PendingTreeMarker';
 import { TreeMarker } from './TreeMarker';
 
 export interface TreeMapProps {
@@ -18,6 +19,8 @@ export interface TreeMapProps {
   onMapClick?: (position: { lat: number; lng: number }) => void;
   /** Crosshair cursor, e.g. "Dodaj roślinę na mapie". */
   addMode?: boolean;
+  /** Temporary marker for a plant that is being added (not saved yet). */
+  pendingPosition?: { lat: number; lng: number } | null;
   showLegend?: boolean;
   showCadControl?: boolean;
   layersCollapsed?: boolean;
@@ -47,6 +50,7 @@ export function TreeMap({
   onTreeClick,
   onMapClick,
   addMode = false,
+  pendingPosition = null,
   showLegend = true,
   showCadControl = true,
   layersCollapsed = false,
@@ -64,6 +68,7 @@ export function TreeMap({
         {trees.map((tree) => (
           <TreeMarker key={tree.id} tree={tree} selected={tree.id === selectedTreeId} onClick={onTreeClick} />
         ))}
+        {pendingPosition && <PendingTreeMarker position={pendingPosition} />}
         {children}
       </MapContainer>
       {showCadControl && <CadUploadControl cad={cad} />}

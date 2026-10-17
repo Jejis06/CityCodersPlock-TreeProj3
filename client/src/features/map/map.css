@@ -91,6 +91,64 @@
   100% { transform: scale(1.6); opacity: 0; }
 }
 
+/* ---- Pending (being added) marker ---- */
+
+.tree-marker-pending {
+  position: relative;
+  width: 28px;
+  height: 28px;
+}
+
+.tree-marker-pending__dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 3px dashed #fff;
+  background: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 0 2px #047857, 0 3px 10px rgba(0, 0, 0, 0.6);
+  animation: tree-marker-spin 4s linear infinite;
+}
+
+@keyframes tree-marker-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Legend: static marker preview ---- */
+
+.map-legend__marker {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 58px;
+  flex-shrink: 0;
+}
+
+.map-legend__marker .tree-marker {
+  width: 16px;
+  height: 16px;
+  cursor: default;
+}
+
+.map-legend__marker .tree-marker__dot {
+  border-width: 2px;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.5), 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.map-legend__marker .tree-marker--shrub .tree-marker__dot {
+  border-radius: 4px;
+}
+
+.map-legend__code {
+  padding: 1px 5px;
+  border-radius: 9999px;
+  border: 2px solid #16a34a;
+  background: #fff;
+  color: #0f172a;
+  font: 700 10px/1.1 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
 /* ---- CAD underlay labels ---- */
 
 .cad-label-icon {

@@ -10,7 +10,7 @@ export function CadUploadControl({ cad }: { cad: CadLayerState }) {
   const currentName = cad.data.source === 'demo' ? 'Projekt demo: Stary Rynek (ZZ-01.dxf)' : cad.data.fileName;
 
   return (
-    <div className="absolute bottom-8 left-3 z-[1001] w-72 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
+    <div className="absolute bottom-8 right-3 z-[1001] w-72 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Podkład CAD / raster (lokalny)</p>
       <p className="mt-1 truncate text-sm font-medium text-slate-800" title={currentName}>
         {currentName}
