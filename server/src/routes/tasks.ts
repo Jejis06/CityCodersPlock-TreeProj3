@@ -1,15 +1,31 @@
+import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { execute, nowIso, queryAll, queryOne, withTransaction } from '../lib/db.js';
+import { execute, nowIso, queryAll, queryOne, withTransaction, type SqlParams } from '../lib/db.js';
 import { HttpError, getUser } from '../lib/http.js';
-import { LOCK_TIMEOUT_MINUTES, TASK_NEWEST_FIRST_ORDER, TREE_STATUS_FOR_CATEGORY } from '../lib/constants.js';
+import {
+  CONTRACTOR_ID,
+  LOCK_TIMEOUT_MINUTES,
+  TASK_NEWEST_FIRST_ORDER,
+  TASK_SUBCATEGORIES,
+  TREE_STATUS_FOR_CATEGORY,
+} from '../lib/constants.js';
 import { sanitizeForRole } from '../lib/sanitize.js';
 import { requireRole } from '../middleware/requireRole.js';
-import type { Role, Task, TaskStatus } from '../types.js';
+import type { Role, Task, TaskCategory, TaskStatus, TaskSubcategory } from '../types.js';
 
 export const tasksRouter = Router();
 
 const TASK_STATUSES: readonly TaskStatus[] = ['assigned', 'pending_approval', 'approved', 'rejected'];
+const TASK_CATEGORIES = Object.keys(TASK_SUBCATEGORIES) as TaskCategory[];
+const isTaskCategory = (v: unknown): v is TaskCategory => TASK_CATEGORIES.includes(v as TaskCategory);
+
+function optionalTrimmedText(value: unknown, fieldName: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw new HttpError(400, `Pole "${fieldName}" musi być tekstem.`);
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+}
 
 /** Task joined with tree/species data needed by the map and cards. */
 const TASK_LIST_SQL = `
@@ -59,6 +75,139 @@ tasksRouter.get('/', (req, res) => {
   }
   const sql = `${TASK_LIST_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY ${TASK_NEWEST_FIRST_ORDER}`;
   res.json(queryAll<Task>(sql, params).map((row) => forRole(row, user.role)));
+});
+
+interface BulkCreateTasksBody {
+  tree_ids?: unknown;
+  category?: unknown;
+  subcategory?: unknown;
+  contractor_id?: unknown;
+  assigned_to?: unknown;
+  contract_number?: unknown;
+  contract_scan_url?: unknown;
+  description?: unknown;
+}
+
+/**
+ * POST /api/tasks/bulk — masowe zlecenie wspólnego zadania dla zaznaczonych na mapie roślin (`tree_ids`).
+ * W jednej transakcji tworzy zadania `assigned` dla wybranego wykonawcy (domyślnie Jan Zieliński)
+ * i zmienia status wszystkich zaznaczonych roślin wg kategorii zadania.
+ */
+tasksRouter.post('/bulk', requireRole('official'), (req, res) => {
+  const user = getUser(req);
+  const body = (req.body ?? {}) as BulkCreateTasksBody;
+
+  if (!Array.isArray(body.tree_ids)) {
+    throw new HttpError(400, 'Pole "tree_ids" musi być tablicą identyfikatorów roślin.');
+  }
+  const treeIds = [
+    ...new Set(body.tree_ids.filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim())),
+  ];
+  if (treeIds.length === 0) {
+    throw new HttpError(400, 'Wybierz co najmniej jedną roślinę do zlecenia zadania.');
+  }
+
+  if (!isTaskCategory(body.category)) {
+    throw new HttpError(400, 'Wybierz kategorię zadania.');
+  }
+  const category = body.category;
+  if (!TASK_SUBCATEGORIES[category].includes(body.subcategory as TaskSubcategory)) {
+    throw new HttpError(400, 'Podkategoria nie pasuje do wybranej kategorii.');
+  }
+  const subcategory = body.subcategory as TaskSubcategory;
+
+  const rawContractorId = optionalTrimmedText(body.contractor_id ?? body.assigned_to, 'contractor_id');
+  let assignedContractorId = CONTRACTOR_ID;
+  if (rawContractorId) {
+    const contractor = queryOne<{ id: string }>(
+      `SELECT id FROM users WHERE id = :id AND role = 'contractor'`,
+      { id: rawContractorId },
+    );
+    if (!contractor) throw new HttpError(400, 'Wybrany wykonawca nie istnieje.');
+    assignedContractorId = contractor.id;
+  }
+
+  const contractNumber = optionalTrimmedText(body.contract_number, 'contract_number');
+  const contractScanUrl = optionalTrimmedText(body.contract_scan_url, 'contract_scan_url');
+  const description = optionalTrimmedText(body.description, 'description');
+
+  const treeQueryParams: SqlParams = {};
+  const placeholders = treeIds.map((id, idx) => {
+    treeQueryParams[`id${idx}`] = id;
+    return `:id${idx}`;
+  });
+
+  const existingTrees = queryAll<{
+    id: string;
+    contract_number: string | null;
+    contract_scan_url: string | null;
+  }>(
+    `SELECT id, contract_number, contract_scan_url FROM trees WHERE id IN (${placeholders.join(', ')})`,
+    treeQueryParams,
+  );
+  if (existingTrees.length === 0) {
+    throw new HttpError(404, 'Nie znaleziono żadnej z zaznaczonych roślin.');
+  }
+
+  const nextTreeStatus = TREE_STATUS_FOR_CATEGORY[category];
+  const createdTaskIds: string[] = [];
+
+  const createdTasks = withTransaction(() => {
+    const now = nowIso();
+    for (const tree of existingTrees) {
+      const taskId = randomUUID();
+      createdTaskIds.push(taskId);
+
+      execute(
+        `UPDATE trees
+            SET status = :status, contractor_id = :contractorId, updated_at = :now
+          WHERE id = :treeId`,
+        {
+          status: nextTreeStatus,
+          contractorId: assignedContractorId,
+          now,
+          treeId: tree.id,
+        },
+      );
+
+      execute(
+        `INSERT INTO tasks (id, tree_id, category, subcategory, status, assigned_to, created_by, description,
+                            contract_number, contract_scan_url, created_at, updated_at)
+         VALUES (:id, :treeId, :category, :subcategory, 'assigned', :assignedTo, :createdBy, :description,
+                 :contractNumber, :contractScanUrl, :now, :now)`,
+        {
+          id: taskId,
+          treeId: tree.id,
+          category,
+          subcategory,
+          assignedTo: assignedContractorId,
+          createdBy: user.id,
+          description,
+          contractNumber: contractNumber ?? tree.contract_number ?? 'UM/ZZ/2026/GRUPOWE',
+          contractScanUrl: contractScanUrl ?? tree.contract_scan_url ?? null,
+          now,
+        },
+      );
+    }
+
+    const taskParams: SqlParams = {};
+    const taskPlaceholders = createdTaskIds.map((id, idx) => {
+      taskParams[`tid${idx}`] = id;
+      return `:tid${idx}`;
+    });
+    return queryAll<Task>(
+      `${TASK_LIST_SQL} WHERE k.id IN (${taskPlaceholders.join(', ')}) ORDER BY ${TASK_NEWEST_FIRST_ORDER}`,
+      taskParams,
+    );
+  });
+
+  res.status(201).json({
+    created_count: createdTasks.length,
+    task_ids: createdTaskIds,
+    tree_ids: existingTrees.map((t) => t.id),
+    status: nextTreeStatus,
+    tasks: createdTasks.map((row) => forRole(row, user.role)),
+  });
 });
 
 function completeTask(req: Request, res: Response): void {

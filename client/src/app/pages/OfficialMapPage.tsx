@@ -1,14 +1,16 @@
 import { CheckCircle2, Crosshair, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/shared/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/shared/Card';
 import { ErrorMessage, Spinner } from '@/components/shared/Feedback';
 import { StatusDot } from '@/components/shared/StatusDot';
 import { AddTreeDialog, type LatLng } from '@/features/map/AddTreeDialog';
+import { CursorModeToolbar, type CursorMode } from '@/features/map/CursorModeToolbar';
 import { MapFilterBar } from '@/features/map/MapFilterBar';
 import { MapFiltersPanel } from '@/features/map/MapFiltersPanel';
 import { MapFlyTo, type FlyTarget } from '@/features/map/MapFlyTo';
 import { ParcelHighlighter } from '@/features/map/ParcelHighlighter';
+import { SpatialBoxSelector } from '@/features/map/SpatialBoxSelector';
 import { EMPTY_TREE_FILTERS, type TreeFilters } from '@/features/map/treeFilters';
 import { TreeMap } from '@/features/map/TreeMap';
 import {
@@ -18,12 +20,14 @@ import {
 } from '@/features/map/useReverseGeocode';
 import { useTrees } from '@/features/map/useTrees';
 import { ViewportStatsWidget } from '@/features/map/ViewportStatsWidget';
+import { BulkSelectionDrawer } from '@/features/tree-card/BulkSelectionDrawer';
 import {
   DecisionWarrantyModal,
   getExpiringDecisionTrees,
 } from '@/features/tree-card/DecisionWarrantyModal';
 import { TreeCardSheet } from '@/features/tree-card/TreeCardSheet';
 import type { RelocateTarget } from '@/features/tree-card/TreeLocationEditor';
+import { cn } from '@/lib/utils';
 import { TREE_STATUS_META, TREE_STATUSES, type TreeListItem } from '@/types/domain';
 
 const SUCCESS_NOTICE_MS = 4000;
@@ -43,6 +47,8 @@ export function OfficialMapPage() {
   const all = useTrees(undefined, { live: true });
   const filtered = useTrees(filters, { live: true });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [cursorMode, setCursorMode] = useState<CursorMode>('single');
+  const [selectedTreeIds, setSelectedTreeIds] = useState<string[]>([]);
   const [addMode, setAddMode] = useState(false);
   const [relocateMode, setRelocateMode] = useState(false);
   const [relocateTarget, setRelocateTarget] = useState<RelocateTarget | null>(null);
@@ -50,6 +56,14 @@ export function OfficialMapPage() {
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
   const [warrantyModalOpen, setWarrantyModalOpen] = useState(false);
+
+  const isMultiMode = cursorMode !== 'single';
+
+  const selectedTrees = useMemo(() => {
+    if (selectedTreeIds.length === 0) return [];
+    const byId = new Map(all.trees.map((t) => [t.id, t]));
+    return selectedTreeIds.map((id) => byId.get(id)).filter((t): t is TreeListItem => Boolean(t));
+  }, [all.trees, selectedTreeIds]);
 
   const expiringDecisionTrees = useMemo(() => getExpiringDecisionTrees(all.trees), [all.trees]);
 
@@ -67,6 +81,35 @@ export function OfficialMapPage() {
     () => geocode.data?.geometry ?? parseStoredGeometry(selectedTree?.parcel_geometry),
     [geocode.data?.geometry, selectedTree?.parcel_geometry],
   );
+
+  const handleCursorModeChange = useCallback((nextMode: CursorMode) => {
+    setCursorMode(nextMode);
+    setAddMode(false);
+    setRelocateMode(false);
+    if (nextMode === 'single') {
+      setSelectedTreeIds([]);
+    } else {
+      setSelectedId(null);
+    }
+  }, []);
+
+  const handleToggleTreeSelection = useCallback((tree: TreeListItem) => {
+    setSelectedTreeIds((prev) =>
+      prev.includes(tree.id) ? prev.filter((id) => id !== tree.id) : [...prev, tree.id],
+    );
+  }, []);
+
+  const handleSelectTreesInBox = useCallback((ids: string[]) => {
+    setSelectedTreeIds((prev) => [...new Set([...prev, ...ids])]);
+  }, []);
+
+  const handleRemoveSelectedTree = useCallback((treeId: string) => {
+    setSelectedTreeIds((prev) => prev.filter((id) => id !== treeId));
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedTreeIds([]);
+  }, []);
 
   const handleAddressSelect = (suggestion: AddressSuggestion) => {
     setFilters((current) => ({ ...current, address: suggestion.filter_value }));
@@ -111,23 +154,28 @@ export function OfficialMapPage() {
 
   const handleCreated = (tree: TreeListItem) => {
     setPendingPosition(null);
+    setCursorMode('single');
+    setSelectedTreeIds([]);
     setSelectedId(tree.id);
     setCreatedCode(tree.code);
     void all.reload();
     void filtered.reload();
   };
 
-  const handleTreeUpdated = () => {
+  const handleTreeUpdated = useCallback(() => {
     void all.reload();
     void filtered.reload();
-  };
+  }, [all, filtered]);
 
-  const handleTreeDeleted = () => {
+  const handleTreeDeleted = (deletedId: string) => {
     setSelectedId(null);
+    setSelectedTreeIds((prev) => prev.filter((id) => id !== deletedId));
     setRelocateMode(false);
     void all.reload();
     void filtered.reload();
   };
+
+  const rightDrawerOpen = (cursorMode === 'single' && selectedId !== null) || (isMultiMode && selectedTrees.length > 0);
 
   return (
     <div className="flex h-full">
@@ -186,8 +234,15 @@ export function OfficialMapPage() {
         <div className="relative min-h-0 flex-1">
           <TreeMap
             trees={filtered.trees}
-            selectedTreeId={selectedId}
-            onTreeClick={addMode || relocateMode ? undefined : (tree) => setSelectedId(tree.id)}
+            selectedTreeId={cursorMode === 'single' ? selectedId : null}
+            selectedTreeIds={isMultiMode ? selectedTreeIds : undefined}
+            onTreeClick={
+              addMode || relocateMode
+                ? undefined
+                : cursorMode === 'single'
+                  ? (tree) => setSelectedId(tree.id)
+                  : handleToggleTreeSelection
+            }
             addMode={addMode || relocateMode}
             pendingPosition={pendingPosition}
             legendClassName="bottom-44"
@@ -199,16 +254,34 @@ export function OfficialMapPage() {
                   }
                 : relocateMode
                   ? (position) => {
-                      setRelocateMode(false);
-                      setRelocateTarget({ lat: position.lat, lng: position.lng, nonce: Date.now() });
-                    }
+                       setRelocateMode(false);
+                       setRelocateTarget({ lat: position.lat, lng: position.lng, nonce: Date.now() });
+                     }
                   : undefined
             }
           >
             <ParcelHighlighter geometry={parcelGeometry} />
             <MapFlyTo target={flyTarget} />
             <ViewportStatsWidget trees={filtered.trees} />
+            <SpatialBoxSelector
+              active={cursorMode === 'spatial_box' && !addMode && !relocateMode}
+              trees={filtered.trees}
+              onSelectTreesInBox={handleSelectTreesInBox}
+            />
           </TreeMap>
+
+          {!addMode && !relocateMode && (
+            <CursorModeToolbar
+              mode={cursorMode}
+              onModeChange={handleCursorModeChange}
+              selectedCount={selectedTrees.length}
+              onClearSelection={handleClearSelection}
+              className={cn(
+                'absolute top-3 transition-all duration-200',
+                rightDrawerOpen ? 'left-[360px]' : 'left-1/2 -translate-x-1/2',
+              )}
+            />
+          )}
 
           {addMode && (
             <div className="absolute left-1/2 top-3 z-[1001] flex -translate-x-1/2 items-center gap-3 rounded-full bg-emerald-800 py-2 pl-4 pr-2 text-sm font-medium text-white shadow-xl">
@@ -245,7 +318,7 @@ export function OfficialMapPage() {
           {createdCode && !addMode && !relocateMode && (
             <div
               role="status"
-              className="absolute left-1/2 top-3 z-[1001] flex -translate-x-1/2 items-center gap-2 rounded-full bg-white py-2 pl-3 pr-4 text-sm font-medium text-emerald-800 shadow-xl ring-1 ring-emerald-200"
+              className="absolute left-1/2 top-16 z-[1001] flex -translate-x-1/2 items-center gap-2 rounded-full bg-white py-2 pl-3 pr-4 text-sm font-medium text-emerald-800 shadow-xl ring-1 ring-emerald-200"
             >
               <CheckCircle2 className="size-4 text-emerald-600" />
               Dodano roślinę <span className="font-bold">{createdCode}</span> do ewidencji
@@ -262,7 +335,7 @@ export function OfficialMapPage() {
       />
 
       <TreeCardSheet
-        treeId={selectedId}
+        treeId={cursorMode === 'single' ? selectedId : null}
         onClose={() => setSelectedId(null)}
         onTreeUpdated={handleTreeUpdated}
         onTreeDeleted={handleTreeDeleted}
@@ -274,12 +347,29 @@ export function OfficialMapPage() {
         }}
       />
 
+      <BulkSelectionDrawer
+        trees={isMultiMode ? selectedTrees : []}
+        onRemoveTree={handleRemoveSelectedTree}
+        onClearSelection={handleClearSelection}
+        onFocusTree={(tree) =>
+          setFlyTarget({
+            lat: tree.latitude,
+            lng: tree.longitude,
+            zoom: PLANT_SEARCH_ZOOM,
+            nonce: Date.now(),
+          })
+        }
+        onTasksCreated={handleTreeUpdated}
+      />
+
       <DecisionWarrantyModal
         open={warrantyModalOpen}
         onClose={() => setWarrantyModalOpen(false)}
         trees={all.trees}
         onTasksGenerated={handleTreeUpdated}
         onSelectTree={(tree) => {
+          setCursorMode('single');
+          setSelectedTreeIds([]);
           setSelectedId(tree.id);
           setFlyTarget({ lat: tree.latitude, lng: tree.longitude, nonce: Date.now() });
         }}

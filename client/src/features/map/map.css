@@ -3,8 +3,9 @@
   font-family: inherit;
 }
 
-.tree-map--add-mode .leaflet-container {
-  cursor: crosshair;
+.tree-map--add-mode .leaflet-container,
+.tree-map--spatial-select {
+  cursor: crosshair !important;
 }
 
 .leaflet-control-layers {
@@ -89,6 +90,39 @@
 @keyframes tree-marker-pulse {
   0% { transform: scale(0.8); opacity: 1; }
   100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* ---- Multi-selected plant marker (white + violet/indigo animated ring) ---- */
+
+.tree-marker--multi-selected .tree-marker__dot {
+  transform: scale(1.22);
+  box-shadow:
+    0 0 0 2px #4f46e5,
+    0 0 0 5px rgba(255, 255, 255, 0.95),
+    0 4px 12px rgba(79, 70, 229, 0.75);
+}
+
+.tree-marker--multi-selected .tree-marker__label {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #312e81;
+  box-shadow: 0 0 0 2px #fff, 0 2px 8px rgba(49, 46, 129, 0.65);
+}
+
+.tree-marker--multi-selected::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 9999px;
+  border: 3px solid #6366f1;
+  box-shadow: 0 0 0 2px #fff;
+  animation: tree-marker-multi-pulse 1.5s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes tree-marker-multi-pulse {
+  0% { transform: scale(0.85); opacity: 0.95; }
+  100% { transform: scale(1.55); opacity: 0; }
 }
 
 /* ---- Pending (being added) marker ---- */

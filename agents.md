@@ -192,6 +192,7 @@ Wszystkie endpointy (poza `/api/health` i `/api/users`) wymagają nagłówka `x-
 | POST | `/api/trees/recalculate-locations` | official | przeliczenie `address`, `plot_number`, `parcel_geometry` i obrębu w notatkach dla wszystkich roślin w bazie wg współrzędnych (`reverseGeocodePoint` z GUGiK ULDK + UUG) |
 | POST | `/api/trees/:id/tasks` | official | zlecenie zadania (przypisanie do wykonawcy drzewa lub domyślnego wykonawcy) |
 | GET  | `/api/tasks?status=a,b` | any | official: wszystkie (kolejka: `pending_approval` + info o blokadzie); contractor: tylko własne |
+| POST | `/api/tasks/bulk` | official | masowe zlecenie wspólnego zadania dla zaznaczonych roślin (`tree_ids`, `category`, `subcategory`, `contractor_id`, `contract_number`, `contract_scan_url?`, `description?`) + aktualizacja ich statusów na mapie |
 | POST | `/api/tasks/:id/submit` | contractor | zgłoszenie wykonania `{ photo_url, comment? }` |
 | POST | `/api/tasks/:id/lock` | official | MUTEX — przejęcie blokady |
 | POST | `/api/tasks/:id/unlock` | official | zwolnienie własnej blokady |
@@ -222,7 +223,7 @@ server/src/
   routes/geocode.ts        # Osoba A: GET /api/geocode/reverse, /api/geocode/suggest (ULDK + UUG GUGiK)
   routes/uploads.ts        # Branch 0: POST /api/uploads (multer -> server/uploads/)
   routes/trees.ts          # Osoba A: GET/POST /api/trees, PATCH/DELETE /api/trees/:id, POST /api/trees/warranty-tasks, POST /api/trees/seed-bdot10k, POST /api/trees/:id/tasks
-  routes/tasks.ts          # Osoba B (pusty router, już zamontowany pod /api/tasks)
+  routes/tasks.ts          # GET /api/tasks, POST /api/tasks/bulk, POST /api/tasks/:id/(submit|complete|lock|unlock|approve|reject)
 ```
 
 Konwencje serwera:
@@ -376,11 +377,14 @@ Gatunku NIE wyszukuje się w tym polu — służy do tego wyłącznie osobny fil
 | `MapFiltersPanel.tsx` | komplet filtrów w lewym panelu: adres, status, typ, gatunek, rok, kategoria zadań, wykonawca |
 | `MapFilterBar.tsx` | pasek nad mapą: licznik + przycisk **"Alerty Decyzji (3 lata)"** z licznikiem + przycisk **"Dodaj roślinę"** |
 | `AddTreeDialog.tsx` | formularz dodawania rośliny: status początkowy tylko `green`/`blue` (bez `red`), checkbox „Nieznany rok posadzenia” (`null`), automatyczne zlecenie zadania **Nasadzanie: Posadzenie** dla wybranego wykonawcy przy statusie „Do posadzenia” (`blue`), sekcja „Z DECYZJI” + nr decyzji |
+| `CursorModeToolbar.tsx` | pływający pasek wyboru trybu kursora na mapie Urzędnika: **Pojedynczy** (`single`, `MousePointer`), **Punktowo wiele** (`multi_point`, `CheckSquare`), **Przestrzennie kwadratem** (`spatial_box`, `SquareDashedMousePointer`) + licznik „Zaznaczono: X roślin” i przycisk „Wyczyść zaznaczenie” |
+| `SpatialBoxSelector.tsx` | dziecko `<TreeMap>`: w trybie `spatial_box` wyłącza przeciąganie mapy, pozwala narysować kursorem prostokąt zaznaczający (`Rectangle`) i dodaje do zaznaczenia wszystkie widoczne rośliny znajdujące się wewnątrz wykreślonego obszaru |
 
 ### Komponenty klienta — Karta Drzewa (`client/src/features/tree-card/`)
 | Plik | Rola |
 |------|------|
 | `TreeCardSheet.tsx` | główny kontener Karty Ewidencyjnej w `Sheet`; wyświetla na górze szybki przycisk przejścia do Kolejki Zatwierdzeń (`/official/queue?taskId=...`), jeśli drzewo ma zadanie `pending_approval` |
+| `BulkSelectionDrawer.tsx` | prawy panel (`Sheet`, `modal={false}`) dla zaznaczenia wielu roślin: skrócona lista zaznaczonych punktów z odznaczaniem (`X`), rozwijany szybki podgląd każdego drzewa (`Eye` / `ChevronDown`: działka, umowa, ostatnie prace, miniatury zdjęć w `PhotoLightbox`, „Pokaż na mapie”) bez utraty zaznaczenia grupowego oraz formularz zbiorczego zlecania zadania (`POST /api/tasks/bulk`) |
 | `TreeHeroHeader.tsx` | nagłówek Karty Drzewa; jeśli drzewo ma w historii zatwierdzone zadanie (`approved`) ze zdjęciem, najnowsze zatwierdzone zdjęcie staje się tłem nagłówka (hero image z ciemnym gradientem pod białym tekstem i przyciskiem powiększenia) |
 | `PhotoLightbox.tsx` | pełnoekranowy modal (Lightbox) do powiększania zdjęć z historii prac oraz nagłówka karty wraz z datą wykonania, wykonawcą i opisem |
 | `TreeLocationEditor.tsx` | moduł edycji dla Urzędnika w Karcie Drzewa: dropdown „Zmień wykonawcę” (`PATCH /api/trees/:id`), przycisk „Przesuń punkt na mapie” (wskazanie nowego punktu na mapie → automatyczne pobranie nowego adresu i działki z `/api/geocode/reverse` + `PATCH /api/trees/:id`) oraz przycisk „Usuń drzewo” z modalem potwierdzenia (`DELETE /api/trees/:id`) |
@@ -430,7 +434,7 @@ Zamiast surowych zapisów typu `D6 · Dąb` używaj wyłącznie tych komponentó
 
 ### Feedback przy odrzuceniu
 - **Urzędnik** — `client/src/features/approval-queue/RejectionReasonField.tsx`: po kliknięciu „Odrzuć / Do poprawy” w `ReviewDialog` pokazuje się pole „Opisz dokładnie, co zostało wykonane nieprawidłowo (informacja dla wykonawcy)” oraz chipy `REJECTION_HINTS` (np. „Brak wymaganej warstwy kory”, „Niewystarczające podlanie”, „Krzywo wbity palik”, „Nieprawidłowe zdjęcie”). Chip dopisuje lub usuwa swoją linię w treści; wysyłany jest zwykły tekst w `POST /api/tasks/:id/reject { reason }`.
-- **Wykonawca** — `client/src/features/contractor/RejectionFeedbackBox.tsx` (`{ task, onShowOnMap?, className? }`): czerwono-pomarańczowy boks dla zadań `rejected` na liście i w dialogu wykonania. Zawiera nagłówek „ZWRÓCONO DO POPRAWY PRZEZ URZĘDNIKA” z `reviewed_by_name` i `reviewed_at`, pogrubioną treść `official_rejection_reason` („Co wymaga poprawy wg Urzędu”), adres, `tree_plot_number`, współrzędne GPS (`lat, lng`, 6 miejsc po przecinku) i przycisk „Pokaż na mapie”, który centruje mapę na roślinie.
+- **Wykonawca** — `client/src/features/contractor/RejectionFeedbackBox.tsx` (`{ task, onShowOnMap?, className? }`): statyczna karta informacyjna z uwagami urzędnika dla zadań `rejected` na liście i w dialogu wykonania (stonowane tło bursztynowo-żółte `bg-amber-50/90`, lewy pasek akcentujący `border-l-4 border-amber-500`, nagłówek `text-amber-900` z ikoną `AlertTriangle` w kolorze `text-amber-600`, subtelny konturowy przycisk „Pokaż na mapie”). W `TaskList.tsx` główny przycisk akcji na dole karty („Popraw i wykonaj ponownie”) wyróżniony jest kontrastowym kolorem indygo (`bg-indigo-600 hover:bg-indigo-700 text-white shadow-md font-semibold`), aby wykonawca na iPadzie jednoznacznie odróżniał żółtą notatkę urzędową od klikalnego przycisku wykonania pracy.
 - Serwer (`routes/tasks.ts`, `TASK_LIST_SQL`) dołącza do każdego wiersza `GET /api/tasks` pola `tree_plot_number` oraz `reviewed_by_name` (join `users` po `reviewed_by`). Pola wrażliwe są dalej usuwane przez `sanitizeForRole`.
 
 ### Tryb „Lista Drzew, Analizy i Eksport” — `client/src/features/export-and-list/`
@@ -515,3 +519,17 @@ Widok Wykonawcy jako natywnie wyglądająca aplikacja na prawdziwym iPadzie (jur
   - `dismissKeyboardAndReset()`: `document.activeElement.blur()` + reset viewportu — wołane w `CompleteTaskDialog` przed „Zgłoś wykonanie”, po sukcesie i przy zamknięciu modala.
   - `index.css`: na urządzeniach dotykowych (`@media (pointer: coarse)`) `input, textarea, select { font-size: 16px }` — iPadOS Safari nie robi auto-zoomu przy focusie.
 - **Modal „Wykonaj zadanie”** (`CompleteTaskDialog.tsx`): przyklejony do góry (`top-[3dvh] -translate-y-0`), `max-h-[80dvh] overflow-y-auto`, więc klawiatura ekranowa nie wypycha go poza ekran.
+
+### Zaznaczanie grupowe na mapie i masowe zlecanie zadań (`feat/bulk-selection-modes-and-rejection-ui-fix`)
+- **Pasek trybu kursora (`client/src/features/map/CursorModeToolbar.tsx`):** pływający pasek na mapie Urzędnika z 3 trybami (`CursorMode`):
+  1. `single` (**Pojedynczy**, ikona `MousePointer`, domyślny) — kliknięcie w roślinę otwiera standardową Kartę Ewidencyjną (`TreeCardSheet`).
+  2. `multi_point` (**Punktowo wiele**, ikona `CheckSquare`) — klikanie w kolejne rośliny dodaje lub usuwa je z listy zaznaczonych (`selectedTreeIds`).
+  3. `spatial_box` (**Przestrzennie kwadratem**, ikona `SquareDashedMousePointer`) — przeciągnięcie prostokąta na mapie zaznacza wszystkie widoczne rośliny wewnątrz obszaru.
+  Pasek wyświetla także licznik zaznaczonych roślin (`Zaznaczono: X roślin`) oraz przycisk `Wyczyść zaznaczenie`. Zaznaczone na mapie markery otrzymują klasę `.tree-marker--multi-selected` (animowany biało-fioletowy pierścień i podświetlona etykieta kodu w `map.css`).
+- **Zaznaczanie obszarowe (`client/src/features/map/SpatialBoxSelector.tsx`):** dziecko `<TreeMap>` aktywne przy `cursorMode === 'spatial_box'`. Na czas rysowania blokuje `dragging`/`boxZoom`/`doubleClickZoom`, rysuje przerywany prostokąt `Rectangle` i po puszczeniu przycisku myszy przekazuje do `onSelectTreesInBox` identyfikatory wszystkich widocznych roślin zawartych w `bounds.contains([lat, lng])`.
+- **Panel zbiorczy (`client/src/features/tree-card/BulkSelectionDrawer.tsx`):** niemodalny prawy panel (`Sheet`, `modal={false}`) otwierany automatycznie, gdy w trybie wielokrotnego wyboru zaznaczona jest ≥ 1 roślina:
+  - Skrócona lista zaznaczonych roślin (`PlantBadge`, gatunek, adres, status) z przyciskiem `X` do odznaczenia pojedynczej rośliny.
+  - Przycisk `Podgląd` (`Eye` / `ChevronDown`) przy każdej pozycji rozwija szczegóły drzewa (`GET /api/trees/:id`: działka, rok, wykonawca, decyzja, umowa + PDF, finansowanie, ostatnie zadania z miniaturami zdjęć otwierającymi `PhotoLightbox` oraz przycisk „Pokaż na mapie”) bez utraty zaznaczenia grupowego.
+  - Formularz „Zleć wspólne zadanie dla zaznaczonych roślin (X szt.)”: wybór kategorii, podkategorii, wykonawcy (domyślnie Jan Zieliński `33333333-3333-3333-3333-333333333333`), numeru umowy, opcjonalnego skanu i opisu → wywołuje `POST /api/tasks/bulk`.
+- **Endpoint `POST /api/tasks/bulk` (`server/src/routes/tasks.ts`, `official`):** przyjmuje `{ tree_ids, category, subcategory, contractor_id?, contract_number?, contract_scan_url?, description? }`. W jednej transakcji SQLite tworzy zadania o statusie `'assigned'` dla wszystkich wskazanych roślin i aktualizuje ich `trees.status` wg kategorii (`yellow` / `red` / `blue`) oraz `contractor_id`. Dzięki live-pollingowi nowo zlecone zadania od razu pojawiają się na górze listy u Wykonawcy (w tym na `/ipad`).
+

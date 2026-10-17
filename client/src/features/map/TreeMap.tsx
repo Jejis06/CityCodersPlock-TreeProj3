@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 import './map.css';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { MapContainer, useMap, useMapEvents } from 'react-leaflet';
 import { cn } from '@/lib/utils';
 import type { TreeListItem } from '@/types/domain';
@@ -14,6 +14,8 @@ import { TreeMarker } from './TreeMarker';
 export interface TreeMapProps {
   trees: TreeListItem[];
   selectedTreeId?: string | null;
+  /** Optional set/list of plant IDs highlighted in multi-selection modes. */
+  selectedTreeIds?: ReadonlySet<string> | readonly string[];
   onTreeClick?: (tree: TreeListItem) => void;
   onMapClick?: (position: { lat: number; lng: number }) => void;
   /** Crosshair cursor, e.g. "Dodaj roślinę na mapie". */
@@ -47,6 +49,7 @@ function MapResizeWatcher() {
 export function TreeMap({
   trees,
   selectedTreeId,
+  selectedTreeIds,
   onTreeClick,
   onMapClick,
   addMode = false,
@@ -58,6 +61,10 @@ export function TreeMap({
   children,
 }: TreeMapProps) {
   const cad = useCadLayer();
+  const multiSelectedSet = useMemo<ReadonlySet<string>>(() => {
+    if (!selectedTreeIds) return new Set();
+    return selectedTreeIds instanceof Set ? selectedTreeIds : new Set(selectedTreeIds);
+  }, [selectedTreeIds]);
 
   return (
     <div className={cn('relative isolate h-full w-full', addMode && 'tree-map--add-mode', className)}>
@@ -66,7 +73,13 @@ export function TreeMap({
         <MapResizeWatcher />
         {onMapClick && <MapClickHandler onClick={onMapClick} />}
         {trees.map((tree) => (
-          <TreeMarker key={tree.id} tree={tree} selected={tree.id === selectedTreeId} onClick={onTreeClick} />
+          <TreeMarker
+            key={tree.id}
+            tree={tree}
+            selected={tree.id === selectedTreeId}
+            multiSelected={multiSelectedSet.has(tree.id)}
+            onClick={onTreeClick}
+          />
         ))}
         {pendingPosition && <PendingTreeMarker position={pendingPosition} />}
         {children}

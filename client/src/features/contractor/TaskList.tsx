@@ -38,7 +38,7 @@ export function TaskList({ tasks, mode, selectedTaskId, onSelect, onExecute }: T
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(task)}
               className={cn(
                 'cursor-pointer rounded-xl bg-white p-4 shadow-sm ring-1 transition',
-                rejected ? 'ring-2 ring-red-400' : 'ring-slate-200',
+                rejected ? 'ring-amber-300' : 'ring-slate-200',
                 selectedTaskId === task.id && 'ring-2 ring-emerald-600',
               )}
             >
@@ -49,7 +49,7 @@ export function TaskList({ tasks, mode, selectedTaskId, onSelect, onExecute }: T
                   speciesPolishName={task.species_polish_name}
                   speciesCultivar={task.species_cultivar}
                 />
-                <Badge className="shrink-0" variant={task.status === 'approved' ? 'default' : task.status === 'pending_approval' ? 'warning' : rejected ? 'destructive' : 'secondary'}>
+                <Badge className="shrink-0" variant={task.status === 'approved' ? 'default' : task.status === 'pending_approval' ? 'warning' : rejected ? 'warning' : 'secondary'}>
                   {task.status === 'approved' ? 'Zatwierdzone' : task.status === 'pending_approval' ? 'W weryfikacji' : rejected ? 'Do poprawy' : 'Do wykonania'}
                 </Badge>
               </div>
@@ -71,8 +71,12 @@ export function TaskList({ tasks, mode, selectedTaskId, onSelect, onExecute }: T
               {mode === 'todo' && (
                 <Button
                   size="touch"
-                  className="mt-3 w-full"
-                  variant={rejected ? 'destructive' : 'default'}
+                  variant="default"
+                  className={cn(
+                    'mt-3 w-full',
+                    rejected &&
+                      'bg-indigo-600 font-semibold text-white shadow-md hover:bg-indigo-700 focus-visible:ring-indigo-500',
+                  )}
                   onClick={(e) => {
                     e.stopPropagation();
                     onExecute(task);
