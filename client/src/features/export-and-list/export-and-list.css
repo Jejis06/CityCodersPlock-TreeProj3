@@ -1,0 +1,5 @@
+.leaflet-container.map-area-selector--drawing,
+.leaflet-container.map-area-selector--drawing .leaflet-marker-icon {
+  cursor: crosshair !important;
+  user-select: none;
+}

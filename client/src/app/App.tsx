@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { ApprovalQueuePage } from '@/features/approval-queue/ApprovalQueuePage';
 import { ContractorPage } from '@/features/contractor/ContractorPage';
+import { TreesListAndExportView } from '@/features/export-and-list/TreesListAndExportView';
 import { CurrentUserProvider } from './CurrentUserContext';
 import { OfficialLayout } from './layouts/OfficialLayout';
 import { OfficialMapPage } from './pages/OfficialMapPage';
@@ -22,6 +23,7 @@ export function App() {
             }
           >
             <Route index element={<OfficialMapPage />} />
+            <Route path="list" element={<TreesListAndExportView />} />
             <Route path="queue" element={<ApprovalQueuePage />} />
           </Route>
           <Route

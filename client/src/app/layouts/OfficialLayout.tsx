@@ -1,16 +1,24 @@
-import { ClipboardCheck, LogOut, Map as MapIcon, UserRound } from 'lucide-react';
+import { ClipboardCheck, LogOut, Map as MapIcon, TableProperties } from 'lucide-react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
-import { Badge } from '@/components/shared/Badge';
-import { Button } from '@/components/shared/Button';
 import { cn } from '@/lib/utils';
 import { ROLE_LABELS } from '@/types/domain';
 import { useCurrentUser } from '../CurrentUserContext';
 import { AppBrand } from './AppBrand';
 
+/** Working modes of the official (map vs table/analytics/export) followed by the approval queue. */
 const navItems = [
-  { to: '/official', label: 'Mapa', icon: MapIcon, end: true },
+  { to: '/official', label: 'Mapa Interaktywna', icon: MapIcon, end: true },
+  { to: '/official/list', label: 'Lista Drzew, Analizy i Eksport', icon: TableProperties, end: false },
   { to: '/official/queue', label: 'Kolejka zatwierdzeń', icon: ClipboardCheck, end: false },
 ];
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
 
 export function OfficialLayout() {
   const { user, logout } = useCurrentUser();
@@ -18,9 +26,9 @@ export function OfficialLayout() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="z-10 flex h-16 shrink-0 items-center gap-6 border-b border-slate-200 bg-white px-5 shadow-sm">
+      <header className="z-10 flex h-16 shrink-0 items-center gap-8 border-b border-slate-200/80 bg-white/95 px-6 shadow-[0_1px_12px_-6px_rgba(15,23,42,0.12)] backdrop-blur">
         <AppBrand />
-        <nav className="flex gap-1">
+        <nav aria-label="Nawigacja urzędnika" className="flex items-center gap-1 rounded-xl bg-slate-100/80 p-1">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -28,8 +36,10 @@ export function OfficialLayout() {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  isActive ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600 hover:bg-slate-100',
+                  'flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all',
+                  isActive
+                    ? 'bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200/80'
+                    : 'text-slate-600 hover:bg-white/60 hover:text-slate-900',
                 )
               }
             >
@@ -38,25 +48,30 @@ export function OfficialLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-4">
           {user && (
-            <div className="flex items-center gap-2 text-sm">
-              <UserRound className="size-4 text-slate-500" />
-              <span className="font-medium">{user.full_name}</span>
-              <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-bold text-white shadow-sm ring-2 ring-white">
+                {initials(user.full_name)}
+              </span>
+              <div className="leading-tight">
+                <p className="text-sm font-semibold text-slate-900">{user.full_name}</p>
+                <p className="text-xs text-slate-500">{ROLE_LABELS[user.role]}</p>
+              </div>
             </div>
           )}
-          <Button
-            variant="outline"
-            size="sm"
+          <span className="h-8 w-px bg-slate-200" aria-hidden />
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
             onClick={() => {
               logout();
               navigate('/');
             }}
           >
-            <LogOut />
+            <LogOut className="size-4" />
             Zmień konto
-          </Button>
+          </button>
         </div>
       </header>
       <main className="min-h-0 flex-1">
