@@ -1,6 +1,5 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, FileCheck2, LocateFixed, TableProperties } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, FileCheck2, MapPin, TableProperties } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from '@/components/shared/Button';
 import { EmptyState } from '@/components/shared/Feedback';
 import { PlantBadge } from '@/components/shared/PlantBadge';
 import { StatusDot } from '@/components/shared/StatusDot';
@@ -13,7 +12,9 @@ type SortKey = 'code' | 'species' | 'address' | 'plot' | 'year' | 'status' | 'co
 type SortDirection = 'asc' | 'desc';
 
 /** "Pokaż na mapie" stays visible when the table scrolls horizontally. */
-const STICKY_ACTION_CELL = 'sticky right-0 px-3 py-2 shadow-[-10px_0_10px_-10px_rgba(15,23,42,0.25)]';
+const STICKY_ACTION_CELL = 'sticky right-0 px-4 py-3 shadow-[-12px_0_12px_-12px_rgba(15,23,42,0.18)]';
+const CELL = 'px-4 py-3';
+const CHECKBOX = 'size-4 cursor-pointer rounded accent-emerald-700';
 
 const collator = new Intl.Collator('pl', { sensitivity: 'base', numeric: true });
 
@@ -67,7 +68,7 @@ function SelectAllCheckbox({ trees, selectedIds, onSelectionChange }: Omit<Trees
       ref={ref}
       type="checkbox"
       aria-label="Zaznacz wszystkie widoczne"
-      className="size-4 accent-emerald-700"
+      className={CHECKBOX}
       checked={all}
       onChange={() => {
         const next = new Set(selectedIds);
@@ -101,15 +102,15 @@ export function TreesDataTable({ trees, selectedIds, onSelectionChange, focusedI
     return (
       <th
         scope="col"
-        className={cn('px-3 py-2 text-left', className)}
+        className={cn('px-4 py-3 text-left', className)}
         aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
       >
         <button
           type="button"
           onClick={() => toggleSort(key)}
           className={cn(
-            'inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide hover:text-emerald-800',
-            active ? 'text-emerald-800' : 'text-slate-500',
+            'inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors hover:text-emerald-800',
+            active ? 'text-emerald-800' : 'text-slate-400',
           )}
         >
           {SORTERS[key].label}
@@ -132,9 +133,9 @@ export function TreesDataTable({ trees, selectedIds, onSelectionChange, focusedI
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[960px] border-collapse text-sm">
-        <thead className="sticky top-0 z-10 bg-slate-50 shadow-[inset_0_-1px_0_#e2e8f0]">
+        <thead className="sticky top-0 z-10 bg-slate-50/90 shadow-[inset_0_-1px_0_#e2e8f0] backdrop-blur">
           <tr>
-            <th scope="col" className="w-10 px-3 py-2">
+            <th scope="col" className="w-12 px-4 py-3">
               <SelectAllCheckbox trees={trees} selectedIds={selectedIds} onSelectionChange={onSelectionChange} />
             </th>
             {header('code')}
@@ -147,7 +148,10 @@ export function TreesDataTable({ trees, selectedIds, onSelectionChange, focusedI
             {header('decision')}
             <th
               scope="col"
-              className={cn(STICKY_ACTION_CELL, 'bg-slate-50 text-right text-xs font-semibold uppercase tracking-wide text-slate-500')}
+              className={cn(
+                STICKY_ACTION_CELL,
+                'bg-slate-50 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400',
+              )}
             >
               Mapa
             </th>
@@ -161,31 +165,31 @@ export function TreesDataTable({ trees, selectedIds, onSelectionChange, focusedI
                 key={tree.id}
                 id={`tree-row-${tree.id}`}
                 className={cn(
-                  'border-b border-slate-100 transition-colors',
-                  selected ? 'bg-emerald-50/70' : 'hover:bg-slate-50',
+                  'group border-b border-slate-100 transition-colors last:border-b-0',
+                  selected ? 'bg-emerald-50/60' : 'hover:bg-slate-50/80',
                   focusedId === tree.id && 'outline-2 -outline-offset-2 outline-emerald-600',
                 )}
               >
-                <td className="px-3 py-2">
+                <td className={CELL}>
                   <input
                     type="checkbox"
                     aria-label={`Zaznacz ${tree.code}`}
-                    className="size-4 accent-emerald-700"
+                    className={CHECKBOX}
                     checked={selected}
                     onChange={() => toggleRow(tree.id)}
                   />
                 </td>
-                <td className="px-3 py-2">
+                <td className={CELL}>
                   <PlantBadge type={tree.type} code={tree.code} size="sm" />
                 </td>
-                <td className="px-3 py-2">
+                <td className={cn(CELL, 'min-w-48')}>
                   <div className="font-medium text-slate-900">{tree.species_label}</div>
                   <div className="text-xs italic text-slate-500">{tree.species_latin_name}</div>
                 </td>
-                <td className="px-3 py-2 text-slate-700">{tree.address ?? '—'}</td>
-                <td className="px-3 py-2 font-mono text-xs text-slate-600">{tree.plot_number ?? '—'}</td>
-                <td className="px-3 py-2 tabular-nums text-slate-700">{tree.planting_year ?? '—'}</td>
-                <td className="px-3 py-2">
+                <td className={cn(CELL, 'min-w-44 text-slate-700')}>{tree.address ?? '—'}</td>
+                <td className={cn(CELL, 'font-mono text-xs text-slate-600')}>{tree.plot_number ?? '—'}</td>
+                <td className={cn(CELL, 'tabular-nums text-slate-700')}>{tree.planting_year ?? '—'}</td>
+                <td className={CELL}>
                   <span
                     className="inline-flex items-center gap-2 whitespace-nowrap text-slate-700"
                     title={TREE_STATUS_META[tree.status].label}
@@ -194,8 +198,8 @@ export function TreesDataTable({ trees, selectedIds, onSelectionChange, focusedI
                     {STATUS_SHORT_LABELS[tree.status]}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-slate-700">{tree.contractor_name ?? '—'}</td>
-                <td className="px-3 py-2">
+                <td className={cn(CELL, 'text-slate-700')}>{tree.contractor_name ?? '—'}</td>
+                <td className={CELL}>
                   {tree.from_decision ? (
                     <span
                       title={tree.decision_ref ?? undefined}
@@ -208,11 +212,21 @@ export function TreesDataTable({ trees, selectedIds, onSelectionChange, focusedI
                     <span className="text-slate-400">—</span>
                   )}
                 </td>
-                <td className={cn(STICKY_ACTION_CELL, 'text-right', selected ? 'bg-emerald-50' : 'bg-white')}>
-                  <Button size="sm" variant="outline" onClick={() => onShowOnMap(tree)}>
-                    <LocateFixed />
+                <td
+                  className={cn(
+                    STICKY_ACTION_CELL,
+                    'text-right transition-colors',
+                    selected ? 'bg-emerald-50' : 'bg-white group-hover:bg-slate-50',
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onShowOnMap(tree)}
+                    className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-[13px] font-medium text-emerald-800 transition-all hover:border-emerald-600 hover:bg-emerald-600 hover:text-white hover:shadow-sm"
+                  >
+                    <MapPin className="size-3.5" />
                     Pokaż na mapie
-                  </Button>
+                  </button>
                 </td>
               </tr>
             );

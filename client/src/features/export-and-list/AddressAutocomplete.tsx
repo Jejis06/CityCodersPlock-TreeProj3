@@ -15,6 +15,7 @@ interface AddressAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  inputClassName?: string;
 }
 
 const MAX_SUGGESTIONS = 8;
@@ -22,7 +23,7 @@ const MAX_SUGGESTIONS = 8;
 const plantsLabel = (n: number) => (n === 1 ? 'roślina' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'rośliny' : 'roślin');
 
 /** Address search with street suggestions built from the inventory (e.g. "ul. Tumska" → all plants on that street). */
-export function AddressAutocomplete({ trees, value, onChange, className }: AddressAutocompleteProps) {
+export function AddressAutocomplete({ trees, value, onChange, className, inputClassName }: AddressAutocompleteProps) {
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
@@ -75,7 +76,7 @@ export function AddressAutocomplete({ trees, value, onChange, className }: Addre
         aria-expanded={showList}
         aria-controls={listId}
         aria-autocomplete="list"
-        className="pl-9 pr-8"
+        className={cn(inputClassName, 'pl-9 pr-8')}
         placeholder="Ulica lub adres, np. Tumska…"
         value={value}
         onChange={(e) => {
@@ -103,7 +104,7 @@ export function AddressAutocomplete({ trees, value, onChange, className }: Addre
         <ul
           id={listId}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl"
+          className="absolute left-0 right-0 top-full z-30 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-900/10"
           onMouseDown={() => blurTimer.current && clearTimeout(blurTimer.current)}
         >
           {suggestions.map((s, i) => (
@@ -111,7 +112,7 @@ export function AddressAutocomplete({ trees, value, onChange, className }: Addre
               <button
                 type="button"
                 className={cn(
-                  'flex w-full items-center gap-2 px-3 py-2 text-left text-sm',
+                  'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm',
                   i === highlighted ? 'bg-emerald-50 text-emerald-900' : 'text-slate-700 hover:bg-slate-50',
                 )}
                 onMouseEnter={() => setHighlighted(i)}

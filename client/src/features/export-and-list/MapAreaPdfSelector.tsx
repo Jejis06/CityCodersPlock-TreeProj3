@@ -108,7 +108,7 @@ export function MapAreaPdfSelector({ trees, generatedBy }: MapAreaPdfSelectorPro
         <Button
           size="sm"
           variant={active ? 'destructive' : 'default'}
-          className="shadow-lg"
+          className="h-9 rounded-full px-4 shadow-lg shadow-slate-900/25 ring-2 ring-white/70"
           onClick={() => {
             setDraft(null);
             setActive((a) => !a);

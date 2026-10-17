@@ -307,6 +307,7 @@ Zamiast surowych zapisów typu `D6 · Dąb` używaj wyłącznie tych komponentó
 - `mapTrees` = rośliny z `GET /api/trees`, które mają co najmniej jedno zadanie z aktywnego taba. Inne drzewa miasta nie trafiają na mapę wykonawcy.
 - `markerVariant`: `todo` → `'status'` (zwykłe `TreeMarker`, kolor wg `trees.status`, standardowa `MapLegend`); `done` → `'completed'` — `ContractorPage` podaje `TreeMap` pustą listę `trees` i renderuje jako dzieci `CompletedTreeMarker` (jednolity stalowo-morski `#2f7f86` z ✓, CSS w `contractor-map.css` rozszerza `.tree-marker`) oraz `CompletedMapLegend` zamiast legendy statusów.
 - `taskForTree(treeId)` — klik w marker zaznacza odpowiadające mu zadanie z aktywnego taba. Zmiana taba czyści zaznaczenie.
+- Po „Zgłoś wykonanie” widok zostaje na zakładce „Do wykonania” (nie przeskakuje na „Wykonane”) — zgłoszone zadanie po prostu znika z listy.
 - Moduł mapy Osoby A (`features/map/*`) nie zna ról ani tabów — wykonawca korzysta tylko z publicznych propsów `TreeMap` (`trees`, `selectedTreeId`, `onTreeClick`, `showLegend`, `children`).
 
 ### Feedback przy odrzuceniu
@@ -316,7 +317,8 @@ Zamiast surowych zapisów typu `D6 · Dąb` używaj wyłącznie tych komponentó
 
 ### Tryb „Lista Drzew, Analizy i Eksport” — `client/src/features/export-and-list/`
 Całkowicie niezależny moduł (nie modyfikuje `features/map/*`; z modułu Osoby A używa tylko `TreeMap`, `useTrees`, `mapConfig`).
-- **Przełącznik trybów** w `OfficialLayout`: segmentowy przełącznik „Mapa Interaktywna” (`/official`) ↔ „Lista Drzew, Analizy i Eksport” (`/official/list`, route w `App.tsx`); „Kolejka zatwierdzeń” jest osobnym linkiem obok.
+- **Nawigacja** w `OfficialLayout`: jedno segmentowe menu „Mapa Interaktywna” (`/official`) · „Lista Drzew, Analizy i Eksport” (`/official/list`, route w `App.tsx`) · „Kolejka zatwierdzeń”; po prawej awatar z inicjałami, imię i rola oraz „Zmień konto”.
+- **Wygląd** (`listUi.tsx`): wspólne klasy paneli (`PANEL_CLASS` — `rounded-2xl`, miękki cień), pól filtrów (`FIELD_CLASS`), etykiet (`FIELD_LABEL_CLASS`) i nagłówek panelu `PanelHeader` (ikona w kafelku + tytuł + opis + `aside`). Nowe panele widoku listy buduj z tych klas zamiast `Card`.
 - **Dane** (`useInventoryData`): `GET /api/trees` bez filtrów + `GET /api/tasks`; filtrowanie tabeli odbywa się po stronie klienta (natychmiastowe). `toListTrees()` (`inventoryModel.ts`) dokłada pola pochodne (nie ma ich w bazie): `street` (adres bez numeru, np. „ul. Tumska”), `species_label`, `from_decision`, `decision_ref`.
 - **„Z decyzji”** — heurystyka bez zmian w schemacie: roślina jest „z decyzji”, jeśli `trees.notes` lub opis któregoś z jej zadań zawiera numer decyzji (`decyzja WOŚ.6131.12.2026` → `decision_ref = 'WOŚ.6131.12.2026'`) albo frazy „decyzj…”, „nasadzenie zastępcze”, „zezwolenie na usunięcie”. Jeśli kiedyś dojdzie kolumna w bazie, podmień tylko `detectDecision()`.
 - **Filtry** (`listFilters.ts` + `ListFilterBar.tsx`): ulica/adres z autouzupełnianiem (`AddressAutocomplete.tsx`, podpowiedzi ulic z licznikiem roślin, wyszukiwanie bez polskich znaków), gatunek, rok posadzenia, wykonawca (także „bez wykonawcy”), typ, status (chipy), decyzja (Wszystkie / Z decyzji / Bez decyzji). `describeListFilters()` daje opis filtrów do nagłówków raportów.
@@ -376,6 +378,7 @@ client/src/features/export-and-list/
   MapAreaPdfDialog.tsx         # modal „Eksport wycinka mapy do PDF”
   mapAreaCapture.ts            # WMS GetMap -> canvas + markery (zdjęcie wycinka)
   export-and-list.css          # kursor krzyżyka podczas zaznaczania
+  listUi.tsx                   # PANEL_CLASS, FIELD_CLASS, FIELD_LABEL_CLASS, PanelHeader (wspólny wygląd paneli)
   formats/                     # exportTypes, exportColumns, zip, xlsx, dxf, shapefile, pdfShared, pdfReport, mapAreaPdf
   lib/                         # geodesy (PL-2000/7, PUWG 1992), saveFile (showSaveFilePicker + fallback)
 ```

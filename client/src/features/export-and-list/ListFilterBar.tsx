@@ -1,8 +1,6 @@
 import { FileCheck2, FilterX } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { Button } from '@/components/shared/Button';
+import type { CSSProperties, ReactNode } from 'react';
 import { Select } from '@/components/shared/FormControls';
-import { StatusDot } from '@/components/shared/StatusDot';
 import { cn } from '@/lib/utils';
 import { TREE_STATUS_META, TREE_STATUSES, type PlantType, type TreeStatus } from '@/types/domain';
 import { AddressAutocomplete } from './AddressAutocomplete';
@@ -15,6 +13,7 @@ import {
   type DecisionFilter,
   type ListFilters,
 } from './listFilters';
+import { FIELD_CLASS, FIELD_LABEL_CLASS } from './listUi';
 
 const DECISION_OPTIONS: { value: DecisionFilter; label: string }[] = [
   { value: 'all', label: 'Wszystkie' },
@@ -31,28 +30,53 @@ export interface FilterOptions {
 
 function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <label className={cn('flex flex-col gap-1', className)}>
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+    <label className={cn('flex min-w-0 flex-col gap-1.5', className)}>
+      <span className={FIELD_LABEL_CLASS}>{label}</span>
       {children}
     </label>
   );
 }
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+interface PillProps {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  /** Status colour — active pill gets a tinted background instead of the brand green. */
+  color?: string;
+}
+
+function Pill({ active, onClick, children, color }: PillProps) {
+  const tinted: CSSProperties | undefined =
+    active && color ? { backgroundColor: `${color}1a`, borderColor: `${color}80` } : undefined;
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
+      style={tinted}
       className={cn(
-        'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors',
+        'inline-flex h-8 items-center gap-2 rounded-full border px-3.5 text-[13px] font-medium transition-all',
         active
-          ? 'border-emerald-700 bg-emerald-700 text-white shadow-sm'
-          : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+          ? color
+            ? 'font-semibold text-slate-900 shadow-sm'
+            : 'border-emerald-700 bg-emerald-700 text-white shadow-sm shadow-emerald-900/20'
+          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900',
       )}
     >
       {children}
     </button>
+  );
+}
+
+function PillGroup({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className={cn(FIELD_LABEL_CLASS, 'mr-1 flex items-center gap-1.5')}>
+        {icon}
+        {label}
+      </span>
+      {children}
+    </div>
   );
 }
 
@@ -74,14 +98,20 @@ export function ListFilterBar({ trees, filters, onChange, options }: ListFilterB
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <Field label="Ulica / adres" className="min-w-64 flex-[2]">
-          <AddressAutocomplete trees={trees} value={filters.address} onChange={(address) => set({ address })} />
+    <div className="flex flex-col gap-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <Field label="Ulica / adres">
+          <AddressAutocomplete
+            trees={trees}
+            value={filters.address}
+            onChange={(address) => set({ address })}
+            inputClassName={FIELD_CLASS}
+          />
         </Field>
 
-        <Field label="Gatunek" className="min-w-56 flex-[2]">
+        <Field label="Gatunek">
           <Select
+            className={FIELD_CLASS}
             value={filters.speciesId ?? ''}
             onChange={(e) => set({ speciesId: e.target.value ? Number(e.target.value) : null })}
           >
@@ -94,8 +124,9 @@ export function ListFilterBar({ trees, filters, onChange, options }: ListFilterB
           </Select>
         </Field>
 
-        <Field label="Rok posadzenia" className="w-36">
+        <Field label="Rok posadzenia">
           <Select
+            className={FIELD_CLASS}
             value={filters.plantingYear ?? ''}
             onChange={(e) => set({ plantingYear: e.target.value ? Number(e.target.value) : null })}
           >
@@ -108,8 +139,12 @@ export function ListFilterBar({ trees, filters, onChange, options }: ListFilterB
           </Select>
         </Field>
 
-        <Field label="Wykonawca" className="w-48">
-          <Select value={filters.contractorId ?? ''} onChange={(e) => set({ contractorId: e.target.value || null })}>
+        <Field label="Wykonawca">
+          <Select
+            className={FIELD_CLASS}
+            value={filters.contractorId ?? ''}
+            onChange={(e) => set({ contractorId: e.target.value || null })}
+          >
             <option value="">Wszyscy</option>
             {options.contractors.map((c) => (
               <option key={c.id} value={c.id}>
@@ -120,8 +155,9 @@ export function ListFilterBar({ trees, filters, onChange, options }: ListFilterB
           </Select>
         </Field>
 
-        <Field label="Typ" className="w-40">
+        <Field label="Typ">
           <Select
+            className={FIELD_CLASS}
             value={filters.type ?? ''}
             onChange={(e) => set({ type: (e.target.value || null) as PlantType | null })}
           >
@@ -132,36 +168,44 @@ export function ListFilterBar({ trees, filters, onChange, options }: ListFilterB
         </Field>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status</span>
-          <Chip active={filters.statuses.length === 0} onClick={() => set({ statuses: [] })}>
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-slate-100 pt-4">
+        <PillGroup label="Status">
+          <Pill active={filters.statuses.length === 0} onClick={() => set({ statuses: [] })}>
             Wszystkie
-          </Chip>
-          {TREE_STATUSES.map((status) => (
-            <Chip key={status} active={filters.statuses.includes(status)} onClick={() => toggleStatus(status)}>
-              <StatusDot status={status} />
-              <span title={TREE_STATUS_META[status].label}>{STATUS_SHORT_LABELS[status]}</span>
-            </Chip>
-          ))}
-        </div>
+          </Pill>
+          {TREE_STATUSES.map((status) => {
+            const color = TREE_STATUS_META[status].color;
+            return (
+              <Pill
+                key={status}
+                color={color}
+                active={filters.statuses.includes(status)}
+                onClick={() => toggleStatus(status)}
+              >
+                <span className="size-2 rounded-full ring-2 ring-white" style={{ backgroundColor: color }} />
+                <span title={TREE_STATUS_META[status].label}>{STATUS_SHORT_LABELS[status]}</span>
+              </Pill>
+            );
+          })}
+        </PillGroup>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            <FileCheck2 className="size-3.5" /> Decyzja
-          </span>
+        <PillGroup label="Decyzja" icon={<FileCheck2 className="size-3.5" />}>
           {DECISION_OPTIONS.map((option) => (
-            <Chip key={option.value} active={filters.decision === option.value} onClick={() => set({ decision: option.value })}>
+            <Pill key={option.value} active={filters.decision === option.value} onClick={() => set({ decision: option.value })}>
               {option.label}
-            </Chip>
+            </Pill>
           ))}
-        </div>
+        </PillGroup>
 
         {hasActiveListFilters(filters) && (
-          <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onChange(EMPTY_LIST_FILTERS)}>
-            <FilterX />
+          <button
+            type="button"
+            onClick={() => onChange(EMPTY_LIST_FILTERS)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+          >
+            <FilterX className="size-4" />
             Wyczyść filtry
-          </Button>
+          </button>
         )}
       </div>
     </div>

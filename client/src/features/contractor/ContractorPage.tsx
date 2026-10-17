@@ -85,7 +85,7 @@ export function ContractorPage() {
 
   const onCompleted = () => {
     setExecuting(null);
-    setTab('done');
+    setSelectedTask(null);
     void loadTasks();
     void reloadTrees();
   };
