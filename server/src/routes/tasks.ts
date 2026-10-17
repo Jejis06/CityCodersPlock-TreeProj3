@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { execute, nowIso, queryAll, queryOne, withTransaction } from '../lib/db.js';
 import { HttpError, getUser } from '../lib/http.js';
-import { LOCK_TIMEOUT_MINUTES, TREE_STATUS_FOR_CATEGORY } from '../lib/constants.js';
+import { LOCK_TIMEOUT_MINUTES, TASK_NEWEST_FIRST_ORDER, TREE_STATUS_FOR_CATEGORY } from '../lib/constants.js';
 import { sanitizeForRole } from '../lib/sanitize.js';
 import { requireRole } from '../middleware/requireRole.js';
 import type { Role, Task, TaskStatus } from '../types.js';
@@ -57,7 +57,7 @@ tasksRouter.get('/', (req, res) => {
       params[`s${i}`] = s;
     });
   }
-  const sql = `${TASK_LIST_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY k.updated_at DESC`;
+  const sql = `${TASK_LIST_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY ${TASK_NEWEST_FIRST_ORDER}`;
   res.json(queryAll<Task>(sql, params).map((row) => forRole(row, user.role)));
 });
 

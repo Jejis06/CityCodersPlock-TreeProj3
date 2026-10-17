@@ -9,11 +9,11 @@ import {
   MessageSquare,
   XCircle,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Badge, type BadgeProps } from '@/components/shared/Badge';
 import { EmptyState } from '@/components/shared/Feedback';
 import { assetUrl } from '@/lib/api';
-import { cn, formatDateTime } from '@/lib/utils';
+import { cn, compareTasksNewestFirst, formatDateTime } from '@/lib/utils';
 import {
   TASK_CATEGORY_LABELS,
   TASK_STATUS_LABELS,
@@ -39,6 +39,7 @@ interface TaskTimelineProps {
 export function TaskTimeline({ tasks, treeCode, onOpenPhoto }: TaskTimelineProps) {
   const [internalPhoto, setInternalPhoto] = useState<LightboxPhoto | null>(null);
   const handleOpenPhoto = onOpenPhoto ?? setInternalPhoto;
+  const sortedTasks = useMemo(() => [...tasks].sort(compareTasksNewestFirst), [tasks]);
 
   if (tasks.length === 0) {
     return (
@@ -54,7 +55,7 @@ export function TaskTimeline({ tasks, treeCode, onOpenPhoto }: TaskTimelineProps
   return (
     <>
       <ol className="relative space-y-4 border-l-2 border-slate-200 pl-6">
-        {tasks.map((task) => (
+        {sortedTasks.map((task) => (
           <TimelineItem key={task.id} task={task} treeCode={treeCode} onOpenPhoto={handleOpenPhoto} />
         ))}
       </ol>

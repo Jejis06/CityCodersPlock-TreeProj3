@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { REALTIME_POLL_MS, reconcileById, useRealtimePolling } from '@/hooks/useRealtimePolling';
 import { api } from '@/lib/api';
+import { compareTasksNewestFirst } from '@/lib/utils';
 import type { QueueTask } from './types';
 
-export const QUEUE_POLL_MS = 3000;
+export const QUEUE_POLL_MS = REALTIME_POLL_MS;
 
-/** Kolejka zadań `pending_approval` odświeżana pollingiem (test MUTEX na dwóch kartach). */
+/** Kolejka zadań `pending_approval` (najnowsze zgłoszenia na górze) odświeżana pollingiem (test MUTEX na dwóch kartach). */
 export function useApprovalQueue() {
   const [tasks, setTasks] = useState<QueueTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,7 +17,7 @@ export function useApprovalQueue() {
     try {
       const data = await api.get<QueueTask[]>('/api/tasks?status=pending_approval');
       if (!mounted.current) return;
-      setTasks([...data].sort((a, b) => (a.completed_at ?? '').localeCompare(b.completed_at ?? '')));
+      setTasks((prev) => reconcileById(prev, [...data].sort(compareTasksNewestFirst)));
       setError(null);
     } catch (e) {
       if (mounted.current) setError(e instanceof Error ? e.message : 'Nie udało się pobrać kolejki.');
@@ -27,12 +29,12 @@ export function useApprovalQueue() {
   useEffect(() => {
     mounted.current = true;
     void refresh();
-    const timer = window.setInterval(() => void refresh(), QUEUE_POLL_MS);
     return () => {
       mounted.current = false;
-      window.clearInterval(timer);
     };
   }, [refresh]);
+
+  useRealtimePolling(refresh, { intervalMs: QUEUE_POLL_MS });
 
   return { tasks, loading, error, refresh };
 }

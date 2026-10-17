@@ -18,4 +18,7 @@ export const TREE_STATUS_FOR_CATEGORY: Record<TaskCategory, TreeStatus> = {
   nasadzanie: 'blue',
 };
 
+/** Domyślne sortowanie zadań (alias tabeli `k`): ostatnia aktywność malejąco — najnowsze na górze. */
+export const TASK_NEWEST_FIRST_ORDER = 'COALESCE(k.completed_at, k.reviewed_at, k.created_at) DESC, k.created_at DESC, k.id';
+
 export const SENSITIVE_FIELDS = ['contract_number', 'contract_scan_url', 'funding_source'] as const;
