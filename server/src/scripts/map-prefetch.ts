@@ -15,23 +15,23 @@ interface TileCoord {
   y: number;
 }
 
-// Whole Płock city bounds (for overview zooms 12..16)
+// Whole Płock city bounds (for overview zooms 10..16)
 const PLOCK_CITY_BOUNDS = {
-  minLat: 52.51,
-  maxLat: 52.575,
-  minLng: 19.64,
-  maxLng: 19.78,
+  minLat: 52.505,
+  maxLat: 52.58,
+  minLng: 19.635,
+  maxLng: 19.785,
 };
 
-// Stary Rynek + Śródmieście core bounds (for high zooms 17..19)
-const PLOCK_CORE_BOUNDS = {
-  minLat: 52.541,
-  maxLat: 52.552,
-  minLng: 19.68,
-  maxLng: 19.702,
+// Full Płock urban belt (Stare Miasto, Śródmieście, Winiary, Kostrogaj, Podolszyce, Radziwie) for max detail zooms 17..18
+const PLOCK_URBAN_BOUNDS = {
+  minLat: 52.527,
+  maxLat: 52.562,
+  minLng: 19.665,
+  maxLng: 19.772,
 };
 
-function buildTilePlan(maxZoom: number, tileSize = DEFAULT_WMS_TILE_SIZE): TileCoord[] {
+function buildTilePlan(maxZoom: number, fullCityHighZoom: boolean, tileSize = DEFAULT_WMS_TILE_SIZE): TileCoord[] {
   let trees: Array<{ latitude: number; longitude: number }> = [];
   try {
     trees = queryAll<{ latitude: number; longitude: number }>('SELECT latitude, longitude FROM trees');
@@ -59,17 +59,15 @@ function buildTilePlan(maxZoom: number, tileSize = DEFAULT_WMS_TILE_SIZE): TileC
     }
   };
 
-  for (let z = 12; z <= maxZoom; z++) {
+  for (let z = 10; z <= maxZoom; z++) {
     if (z <= 16) {
       addBounds(z, PLOCK_CITY_BOUNDS);
     } else {
-      // High zoom: Stary Rynek / Śródmieście core + neighborhood around every tree in DB
-      addBounds(z, PLOCK_CORE_BOUNDS);
-      const radius = z === 17 ? 1 : 0;
+      addBounds(z, fullCityHighZoom ? PLOCK_CITY_BOUNDS : PLOCK_URBAN_BOUNDS);
       for (const t of trees) {
         const center = latLngToTileXY(t.latitude, t.longitude, z, tileSize);
-        for (let dx = -radius; dx <= radius; dx++) {
-          for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
             addTile(z, center.x + dx, center.y + dy);
           }
         }
@@ -84,13 +82,14 @@ async function main() {
   const args = process.argv.slice(2);
   const layersArg = args.find((a) => a.startsWith('--layers='))?.split('=')[1];
   const maxZoomArg = Number(args.find((a) => a.startsWith('--max-zoom='))?.split('=')[1] ?? 18);
-  const maxZoom = Number.isFinite(maxZoomArg) ? Math.min(Math.max(maxZoomArg, 12), 19) : 18;
+  const maxZoom = Number.isFinite(maxZoomArg) ? Math.min(Math.max(maxZoomArg, 10), 19) : 18;
+  const fullCityHighZoom = args.includes('--full-bounds');
 
   const layers: WmsLayerKey[] = layersArg
     ? layersArg.split(',').filter(isWmsLayerKey)
     : ['basemap', 'kieg', 'orto', 'kiut'];
 
-  const tiles = buildTilePlan(maxZoom, DEFAULT_WMS_TILE_SIZE);
+  const tiles = buildTilePlan(maxZoom, fullCityHighZoom, DEFAULT_WMS_TILE_SIZE);
 
   // Build tasks list (skip KIUT at low zooms < 17 where GUGiK renders empty tiles anyway)
   const jobs: Array<{ layer: WmsLayerKey; z: number; x: number; y: number }> = [];
@@ -108,7 +107,7 @@ async function main() {
   }
 
   console.log(
-    `[map:prefetch] Plan Płock (zoom 12..${maxZoom}, tile 512px): ${
+    `[map:prefetch] Plan Płock (zoom 10..${maxZoom}, tile 512px): ${
       jobs.length + alreadyCached
     } kafelków łącznie (${alreadyCached} już w lokalnej bazie, ${jobs.length} do pobrania).`,
   );

@@ -3,7 +3,7 @@ import type { LatLngTuple, WMSParams } from 'leaflet';
 export const MAP_CENTER: LatLngTuple = [52.5463, 19.6885];
 export const MAP_ZOOM = 17;
 export const MAP_MIN_ZOOM = 10;
-export const MAP_MAX_NATIVE_ZOOM = 19;
+export const MAP_MAX_NATIVE_ZOOM = 18;
 export const MAP_MAX_ZOOM = 21;
 export const MAP_TILE_SIZE = 512;
 
