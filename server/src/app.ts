@@ -10,6 +10,7 @@ import { tasksRouter } from './routes/tasks.js';
 import { treesRouter } from './routes/trees.js';
 import { uploadsRouter } from './routes/uploads.js';
 import { usersRouter } from './routes/users.js';
+import { wmsRouter } from './routes/wms.js';
 
 export function createApp() {
   const app = express();
@@ -23,6 +24,7 @@ export function createApp() {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
   app.use('/api/users', usersRouter);
+  app.use('/api/wms', wmsRouter);
 
   // Everything below requires x-user-id
   app.use('/api', currentUser);

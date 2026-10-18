@@ -41,22 +41,26 @@ Zmienne środowiskowe:
 Uruchomienie (z katalogu głównego): `npm run setup` (instaluje `/server` i `/client`), potem `npm run dev` (serwer :4000 + klient :5173).
 Baza tworzy się automatycznie przy pierwszym starcie serwera, jeśli pliku nie ma. Reset: `npm run db:reset`.
 
-### Silnik mapowy — WYŁĄCZNIE Geoportal (GUGiK), ZERO OpenStreetMap
-- `react-leaflet` v5 + `leaflet` 1.9. Środek: Płock `[52.5463, 19.6885]`, `zoom={17}`, `maxZoom={21}`.
+### Silnik mapowy — WYŁĄCZNIE Geoportal (GUGiK), ZERO OpenStreetMap (z lokalnym cachem SQLite `/api/wms/:layer`)
+- `react-leaflet` v5 + `leaflet` 1.9. Środek: Płock `[52.5463, 19.6885]`, `zoom={17}`, `maxNativeZoom={19}`, `maxZoom={21}`, `tileSize={512}`.
 - **Zakaz używania OpenStreetMap** i jakichkolwiek innych kafli komercyjnych/społecznościowych. Tylko oficjalne usługi WMS GUGiK + lokalny podkład CAD.
-- Konfiguracja warstw w jednym miejscu: `client/src/features/map/mapConfig.ts` (`MAP_CENTER`, `MAP_ZOOM`, `MAP_MAX_ZOOM`, definicje WMS).
+- **Lokalne API kafelkowe i trwały cache SQLite (`database/wms-cache.db`, `server/src/lib/wmsCache.ts`, `server/src/routes/wms.ts`):**
+  - Klient odpytuje nasze lokalne endpointy `/api/wms/basemap`, `/api/wms/orto`, `/api/wms/kieg`, `/api/wms/kiut` (publiczne, bez `x-user-id`, żeby działały w tagach `<img>` Leafletu oraz przez proxy Vite na iPadzie).
+  - Przy trafieniu w cache (`HIT`) serwer zwraca kafelek z `database/wms-cache.db` w `< 1 ms` (`Cache-Control: public, max-age=604800, immutable`).
+  - Przy braku kafelka (`MISS`) serwer pobiera go z GUGiK przez kolejkę z limitem współbieżności (max 6 jednoczesnych zapytań na host GUGiK), deduplikacją w locie (`inFlight`) i automatycznym retry po stronie serwera, po czym zapisuje kafelek na stałe w `database/wms-cache.db`.
+  - Pre-fetching map całego Płocka i okolic drzew: `npm run map:prefetch` (`server/src/scripts/map-prefetch.ts`).
+- Konfiguracja warstw w jednym miejscu: `client/src/features/map/mapConfig.ts` (`MAP_CENTER`, `MAP_ZOOM`, `MAP_MAX_NATIVE_ZOOM`, `MAP_MAX_ZOOM`, `MAP_TILE_SIZE`, definicje WMS).
 - Warstwy w `LayersControl` (`client/src/features/map/MapLayers.tsx`):
 
-| Typ | Nazwa w UI | URL | Parametry |
-|-----|-----------|-----|-----------|
-| BaseLayer (domyślna, `checked`) | Geoportal - Mapa Uliczna (GUGiK BaseMap) | `https://mapy.geoportal.gov.pl/wss/ext/OSM/BaseMap/service` | `layers="osm"`, `format="image/png"`, `transparent={false}`, `version="1.1.1"`, `minZoom={10}`, `maxZoom={21}`, `attribution="GUGiK Geoportal.gov.pl"` (czysty podkład uliczny, nie zmienia stylu przy zoomie; zastąpił TOPO) |
-| BaseLayer | Geoportal - Ortofotomapa HD | `https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution` | `layers="Raster"`, `format="image/jpeg"`, `transparent={false}`, `version="1.3.0"`, `maxZoom={21}`, `attribution="GUGiK Geoportal.gov.pl"` |
-| Overlay (domyślnie `checked`) | Geoportal - Działki i Budynki (KIEG) | `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow` | `layers="dzialki,numery_dzialek,budynki"`, `format="image/png"`, `transparent={true}`, `maxZoom={21}` |
-| Overlay (domyślnie wyłączony) | Geoportal - Uzbrojenie terenu (KIUT) | `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzbrojeniaTerenu` | `layers="przewod_wodociagowy,przewod_kanalizacyjny,przewod_gazowy,przewod_elektroenergetyczny,przewod_cieplowniczy,przewod_telekomunikacyjny"`, `format="image/png"`, `transparent={true}`, `maxZoom={21}` (moduł `KiutOverlay.tsx`: wpis w LayersControl + przycisk szybkiego włączenia + legenda) |
+| Typ | Nazwa w UI | Lokalny URL (proxy → GUGiK WMS) | Parametry |
+|-----|-----------|--------------------------------|-----------|
+| BaseLayer (domyślna, `checked`) | Geoportal - Mapa Uliczna (GUGiK BaseMap) | `/api/wms/basemap` → `https://mapy.geoportal.gov.pl/wss/ext/OSM/BaseMap/service` | `layers="osm"`, `format="image/png"`, `transparent={false}`, `version="1.1.1"`, `tileSize={512}`, `minZoom={10}`, `maxNativeZoom={19}`, `maxZoom={21}` |
+| BaseLayer | Geoportal - Ortofotomapa HD | `/api/wms/orto` → `https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution` | `layers="Raster"`, `format="image/jpeg"`, `transparent={false}`, `version="1.3.0"`, `tileSize={512}`, `maxNativeZoom={19}`, `maxZoom={21}` |
+| Overlay (domyślnie `checked`) | Geoportal - Działki i Budynki (KIEG) | `/api/wms/kieg` → `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow` | `layers="dzialki,numery_dzialek,budynki"`, `format="image/png"`, `transparent={true}`, `tileSize={512}`, `maxNativeZoom={19}`, `maxZoom={21}` |
+| Overlay (domyślnie wyłączony) | Geoportal - Uzbrojenie terenu (KIUT) | `/api/wms/kiut` → `https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzbrojeniaTerenu` | `layers="przewod_wodociagowy,przewod_kanalizacyjny,przewod_gazowy,przewod_elektroenergetyczny,przewod_cieplowniczy,przewod_telekomunikacyjny"`, `format="image/png"`, `transparent={true}`, `tileSize={512}`, `maxNativeZoom={19}`, `maxZoom={21}` (moduł `KiutOverlay.tsx`) |
 | Overlay | Podkład projektowy CAD/DXF i Raster (Lokalny) | lokalny (`CadOverlay.tsx`) | wektorowy projekt Starego Rynku (tylko wpis w `LayersControl`; pływający panel „Podkład CAD / raster (lokalny)” z przyciskiem „Wgraj z dysku” został usunięty) |
 
-- **Uwaga techniczna (sprawdzone):** usługa ORTO losowo zwraca `404` dla ok. połowy poprawnych żądań `GetMap` (niezależnie od wersji WMS) — kolejna próba zwykle się udaje. Dlatego `MapLayers.tsx` ma handler `tileerror`, który ponawia pobranie kafla (do 10 razy, z rosnącym opóźnieniem do 2 s). Nie usuwaj go. Wszystkie trzy usługi działają w `EPSG:3857`. Parametry WMS (`layers`, `format`, `transparent`, `version`) przekazujemy przez prop `params` komponentu `WMSTileLayer`.
-- Każda warstwa musi mieć `maxZoom={21}` (domyślne 18 w Leaflet ucina zbliżenie).
+- **Uwaga techniczna (sprawdzone):** usługa ORTO losowo zwraca `404` dla ok. połowy poprawnych żądań `GetMap` — retry realizuje zarówno serwer (`wmsCache.ts`), jak i handler `tileerror` w `GeoportalWms.tsx`. Kafelki `512×512` redukują liczbę zapytań 4-krotnie przy zachowaniu identycznej skali odwzorowania WMS, a `maxNativeZoom={19}` przy `maxZoom={21}` płynnie przeskalowuje pobrane kafelki na zoomach 20–21 bez dodatkowych zapytań sieciowych.
 - **Podkład CAD (lokalny):** domyślnie wyświetla symulowany projekt zagospodarowania Starego Rynku (obrys płyty, ścieżki, projektowane nasadzenia). Panel wgrywania pliku z mapy usunięto (`CadUploadControl` nie istnieje, `TreeMap` nie ma propa `showCadControl`); parser w `cad/parseCadFile.ts` + `useCadLayer().loadFile` zostały i obsługują (wyłącznie w przeglądarce):
   - `.dxf` → parsowany przez `dxf-parser` (encje `LINE`, `LWPOLYLINE`, `POLYLINE`, `CIRCLE`), współrzędne CAD skalowane proporcjonalnie do ramki Starego Rynku (symulacja georeferencji),
   - `.geojson`/`.json` → `GeoJSON` (zakładamy WGS84),
@@ -172,12 +176,14 @@ Etykiety PL do UI: Pielęgnacja / Wycinka / Nasadzanie; Nawożenie / Podlewanie 
 
 ## 5. Kontrakt API (`/server`, prefiks `/api`)
 
-Wszystkie endpointy (poza `/api/health` i `/api/users`) wymagają nagłówka `x-user-id`. Odpowiedzi JSON; błędy jako `{ "error": "komunikat" }`.
+Wszystkie endpointy (poza `/api/health`, `/api/users` i `/api/wms/*`) wymagają nagłówka `x-user-id`. Odpowiedzi JSON; błędy jako `{ "error": "komunikat" }`.
 
 | Metoda | Ścieżka | Rola | Opis |
 |--------|---------|------|------|
 | GET  | `/api/health` | — | healthcheck |
 | GET  | `/api/users` | — | 3 konta do ekranu wyboru ról |
+| GET  | `/api/wms/:layer` | — | lokalny serwer kafelków WMS (`basemap`, `orto`, `kieg`, `kiut`) z trwałym cachem SQLite (`database/wms-cache.db`) i ochroną przed rate-limitem GUGiK |
+| GET  | `/api/wms/stats` | — | statystyki lokalnego cache'u kafelków WMS (liczba kafelków i rozmiar MB na warstwę) |
 | GET  | `/api/species?q=&type=` | any | słownik gatunków (wyszukiwanie po nazwie PL/łacińskiej/odmianie) |
 | GET  | `/api/geocode/reverse?lat=&lng=` | official | działka z ULDK (numer, obręb, obrys jako GeoJSON) + najbliższy adres (GUGiK UUG) |
 | GET  | `/api/geocode/suggest?q=` | official | podpowiedzi jednej wyszukiwarki: rośliny po kodzie (`source: 'plant'`, np. `D32/2026`), ulice z bazy drzew (`'trees'`) + adresy w Płocku (`'gugik'`, GUGiK UUG) |
@@ -207,8 +213,9 @@ server/src/
   app.ts                   # Express: cors, json, /uploads, montowanie routerów (1 linia na domenę), obsługa błędów
   express.d.ts             # req.user
   types.ts                 # typy domenowe (wspólne, zmiany tylko addytywne)
-  lib/config.ts            # PORT, CORS_ORIGIN, DB_PATH, ścieżki; ładuje server/.env (process.loadEnvFile)
+  lib/config.ts            # PORT, CORS_ORIGIN, DB_PATH, WMS_CACHE_DB_PATH, ścieżki; ładuje server/.env (process.loadEnvFile)
   lib/db.ts                # node:sqlite (DatabaseSync), PRAGMA, queryAll/queryOne/execute, withTransaction(), nowIso()
+  lib/wmsCache.ts          # lokalny cache kafelków GUGiK WMS w database/wms-cache.db + kolejka concurrency + retry
   lib/http.ts              # HttpError(status, message, details?), getUser(req)
   lib/sanitize.ts          # sanitizeForRole(data, role) — głębokie usuwanie pól wrażliwych dla contractor
   lib/constants.ts         # LOCK_TIMEOUT_MINUTES = 5, CONTRACTOR_ID, TASK_SUBCATEGORIES, TREE_STATUS_FOR_CATEGORY, TASK_NEWEST_FIRST_ORDER
@@ -216,9 +223,11 @@ server/src/
   middleware/currentUser.ts  # x-user-id -> req.user (401)
   middleware/requireRole.ts  # requireRole('official') (403)
   scripts/db-reset.ts      # npm run db:reset — wykonuje database/init.sql + seed BDOT10k + applyDatabaseFixes()
+  scripts/map-prefetch.ts  # npm run map:prefetch — pobiera wyprzedzająco kafelki WMS dla Płocka do database/wms-cache.db
   seeds/bdot10kEnricher.ts # Osoba A: parser KML BDOT10k (Płock, TERYT 1462) + deterministyczne wzbogacanie danych
   seeds/databaseFixes.ts   # trwałe korekty danych: applyDatabaseFixes(), REMOVED_TREE_CODES/IDS, FORCED_GREEN_TREE_CODES/IDS
   routes/users.ts          # Branch 0: GET /api/users (bez nagłówka)
+  routes/wms.ts            # lokalny serwer kafelków GET /api/wms/:layer i GET /api/wms/stats (bez nagłówka)
   routes/species.ts        # Branch 0: GET /api/species?q=&type=
   routes/geocode.ts        # Osoba A: GET /api/geocode/reverse, /api/geocode/suggest (ULDK + UUG GUGiK)
   routes/uploads.ts        # Branch 0: POST /api/uploads (multer -> server/uploads/)

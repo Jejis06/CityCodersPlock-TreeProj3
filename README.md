@@ -103,9 +103,25 @@ npm run db:reset
 
 Kasuje i odtwarza schemat + seed + poprawki demo (m.in. usunięcie wybranych punktów, wymuszenie statusu zielonego dla wybranych kodów).
 
-### 4. Konfiguracja (opcjonalna)
+### 4. Pobranie map Płocka do lokalnego cache'u (brak rate-limitu GUGiK)
 
-Skopiuj przykłady env, jeśli chcesz zmienić port lub CORS:
+Aplikacja posiada wbudowany lokalny serwer kafelków WMS (`/api/wms/:layer`) z trwałym cachem SQLite (`database/wms-cache.db`). Aby pobrać z wyprzedzeniem wszystkie warstwy mapowe dla Płocka (`basemap`, `orto`, `kieg`, `kiut`) na dysk:
+
+```bash
+# Pobranie wszystkich 4 warstw (zoom 12–18, kafelki 512×512 px) do database/wms-cache.db
+npm run map:prefetch
+
+# Opcjonalnie: pobranie tylko wybranych warstw lub do wybranego poziomu przybliżenia (12–19)
+npm run map:prefetch -- --layers=basemap,kieg --max-zoom=18
+```
+
+- Pobrane kafelki są serwowane lokalnie w `< 1 ms` (`X-Tile-Cache: HIT`), a brakujące są dociągane w locie i automatycznie dopisywane do `database/wms-cache.db`.
+- Reset bazy (`npm run db:reset`) **nie usuwa** pobranych map (`database/wms-cache.db` jest osobnym plikiem).
+- Statystyki lokalnego cache'u map można sprawdzić pod adresem: `http://localhost:4000/api/wms/stats`.
+
+### 5. Konfiguracja (opcjonalna)
+
+Skopiuj przykłady env, jeśli chcesz zmienić port, CORS lub ścieżki do plików SQLite:
 
 ```bash
 cp server/.env.example server/.env
@@ -114,10 +130,10 @@ cp client/.env.example client/.env
 
 | Plik | Zmienne |
 |------|---------|
-| `server/.env` | `PORT=4000`, `CORS_ORIGIN=http://localhost:5173`, `DB_PATH=../database/tree-monitor.db` |
+| `server/.env` | `PORT=4000`, `CORS_ORIGIN=http://localhost:5173`, `DB_PATH=../database/tree-monitor.db`, `WMS_CACHE_DB_PATH=../database/wms-cache.db` |
 | `client/.env` | `VITE_API_URL=` (puste = proxy Vite `/api` i `/uploads` → `:4000`) |
 
-### 5. Demo na iPadzie (ta sama sieć)
+### 6. Demo na iPadzie (ta sama sieć)
 
 1. Uruchom `npm run dev` na laptopie (Vite nasłuchuje w sieci lokalnej).
 2. Na iPadzie otwórz `http://<IP_LAPTOPA>:5173/ipad`.
@@ -236,15 +252,16 @@ Brief hackathonu (Adobe Scan / Polecenie — Projekt 3) → implementacja:
 │       └── types/
 ├── server/                 # Express REST API
 │   └── src/
-│       ├── routes/         # users, species, trees, tasks, geocode, uploads
-│       ├── lib/            # db, sanitize, treeCode, constants
+│       ├── routes/         # users, wms, species, trees, tasks, geocode, uploads
+│       ├── lib/            # db, wmsCache, sanitize, treeCode, constants
 │       ├── middleware/     # currentUser, requireRole
 │       └── seeds/          # BDOT10k + poprawki demo
 ├── database/
 │   ├── init.sql
 │   ├── species_dictionary.csv
 │   ├── plock_bdot10k_trees.kml
-│   └── tree-monitor.db     # lokalny plik (w .gitignore)
+│   ├── tree-monitor.db     # lokalna baza danych aplikacji (w .gitignore)
+│   └── wms-cache.db        # lokalny cache kafelków WMS GUGiK (w .gitignore)
 ├── agents.md / .cursorrules  # Specyfikacja dla agentów AI
 ├── DOCSPEC.md              # Architektura i flow danych
 └── README.md               # Ten plik
@@ -260,7 +277,8 @@ Brief hackathonu (Adobe Scan / Polecenie — Projekt 3) → implementacja:
 | `npm run dev` | Serwer `:4000` + klient `:5173` jednocześnie |
 | `npm run build` | Build TypeScript serwera + Vite klienta |
 | `npm run typecheck` | `tsc --noEmit` w obu pakietach |
-| `npm run db:reset` | Reset SQLite do stanu demo |
+| `npm run db:reset` | Reset SQLite do stanu demo (nie kasuje `wms-cache.db`) |
+| `npm run map:prefetch` | Pobranie kafelków WMS GUGiK dla Płocka do lokalnej bazy `database/wms-cache.db` |
 
 ---
 

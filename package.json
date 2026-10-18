@@ -13,7 +13,8 @@
     "dev:client": "npm run dev --prefix client",
     "build": "npm run build --prefix server && npm run build --prefix client",
     "typecheck": "npm run typecheck --prefix server && npm run typecheck --prefix client",
-    "db:reset": "npm run db:reset --prefix server"
+    "db:reset": "npm run db:reset --prefix server",
+    "map:prefetch": "npm --prefix server exec -- tsx server/src/scripts/map-prefetch.ts"
   },
   "devDependencies": {
     "concurrently": "^10.0.6"

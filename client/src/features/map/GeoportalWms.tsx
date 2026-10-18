@@ -1,8 +1,13 @@
-import type { TileErrorEvent } from 'leaflet';
+import type { TileErrorEvent, TileLayer } from 'leaflet';
 import { forwardRef } from 'react';
-import type { TileLayer } from 'leaflet';
 import { WMSTileLayer } from 'react-leaflet';
-import { MAP_MAX_ZOOM, MAP_MIN_ZOOM, type WmsLayerConfig } from './mapConfig';
+import {
+  MAP_MAX_NATIVE_ZOOM,
+  MAP_MAX_ZOOM,
+  MAP_MIN_ZOOM,
+  MAP_TILE_SIZE,
+  type WmsLayerConfig,
+} from './mapConfig';
 
 const MAX_TILE_RETRIES = 10;
 
@@ -20,7 +25,7 @@ function retryTile({ tile }: TileErrorEvent) {
 
 const wmsEventHandlers = { tileerror: retryTile };
 
-/** One official GUGiK WMS layer (with tile retry). Shared by MapLayers and feature overlays. */
+/** One official GUGiK WMS layer served via local cache proxy (/api/wms/:layer) with 512px tiles. */
 export const GeoportalWms = forwardRef<TileLayer.WMS, { layer: WmsLayerConfig }>(function GeoportalWms(
   { layer },
   ref,
@@ -30,8 +35,11 @@ export const GeoportalWms = forwardRef<TileLayer.WMS, { layer: WmsLayerConfig }>
       ref={ref}
       url={layer.url}
       params={layer.params}
+      tileSize={MAP_TILE_SIZE}
       minZoom={MAP_MIN_ZOOM}
+      maxNativeZoom={MAP_MAX_NATIVE_ZOOM}
       maxZoom={MAP_MAX_ZOOM}
+      keepBuffer={4}
       zIndex={layer.zIndex}
       attribution={layer.attribution}
       eventHandlers={wmsEventHandlers}

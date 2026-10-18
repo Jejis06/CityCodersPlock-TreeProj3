@@ -14,6 +14,7 @@ export const config = {
   port: Number(process.env.PORT ?? 4000),
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
   dbPath: path.resolve(serverRoot, process.env.DB_PATH ?? '../database/tree-monitor.db'),
+  wmsCacheDbPath: path.resolve(serverRoot, process.env.WMS_CACHE_DB_PATH ?? '../database/wms-cache.db'),
   initSqlPath: path.resolve(serverRoot, '../database/init.sql'),
   bdot10kKmlPath: path.resolve(serverRoot, '../database/plock_bdot10k_trees.kml'),
   bdot10kGeocodedPath: path.resolve(serverRoot, '../database/plock_bdot10k_geocoded.json'),

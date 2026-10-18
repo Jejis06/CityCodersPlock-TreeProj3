@@ -3,9 +3,13 @@ import type { LatLngTuple, WMSParams } from 'leaflet';
 export const MAP_CENTER: LatLngTuple = [52.5463, 19.6885];
 export const MAP_ZOOM = 17;
 export const MAP_MIN_ZOOM = 10;
+export const MAP_MAX_NATIVE_ZOOM = 19;
 export const MAP_MAX_ZOOM = 21;
+export const MAP_TILE_SIZE = 512;
 
-export const GEOPORTAL_ATTRIBUTION = 'GUGiK Geoportal.gov.pl';
+export const GEOPORTAL_ATTRIBUTION = 'GUGiK Geoportal.gov.pl (Local Cache)';
+
+const API_BASE: string = import.meta.env.VITE_API_URL ?? '';
 
 export interface WmsLayerConfig {
   name: string;
@@ -19,9 +23,9 @@ export interface WmsLayerConfig {
 
 export const BASE_LAYERS: WmsLayerConfig[] = [
   {
-    // Clean, uniform street basemap (does not change style between zoom levels, unlike TOPO).
+    // Clean, uniform street basemap served via local SQLite WMS cache (/api/wms/basemap).
     name: 'Geoportal - Mapa Uliczna (GUGiK BaseMap)',
-    url: 'https://mapy.geoportal.gov.pl/wss/ext/OSM/BaseMap/service',
+    url: `${API_BASE}/api/wms/basemap`,
     params: { layers: 'osm', format: 'image/png', transparent: false, version: '1.1.1' },
     checked: true,
     attribution: GEOPORTAL_ATTRIBUTION,
@@ -29,7 +33,7 @@ export const BASE_LAYERS: WmsLayerConfig[] = [
   },
   {
     name: 'Geoportal - Ortofotomapa HD',
-    url: 'https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/StandardResolution',
+    url: `${API_BASE}/api/wms/orto`,
     params: { layers: 'Raster', format: 'image/jpeg', transparent: false, version: '1.3.0' },
     attribution: GEOPORTAL_ATTRIBUTION,
     zIndex: 1,
@@ -38,7 +42,7 @@ export const BASE_LAYERS: WmsLayerConfig[] = [
 
 export const KIEG_OVERLAY: WmsLayerConfig = {
   name: 'Geoportal - Działki i Budynki (KIEG)',
-  url: 'https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow',
+  url: `${API_BASE}/api/wms/kieg`,
   params: { layers: 'dzialki,numery_dzialek,budynki', format: 'image/png', transparent: true },
   checked: true,
   zIndex: 10,
@@ -46,7 +50,7 @@ export const KIEG_OVERLAY: WmsLayerConfig = {
 
 export const KIUT_OVERLAY: WmsLayerConfig = {
   name: 'Geoportal - Uzbrojenie terenu (KIUT)',
-  url: 'https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaUzbrojeniaTerenu',
+  url: `${API_BASE}/api/wms/kiut`,
   params: {
     layers:
       'przewod_wodociagowy,przewod_kanalizacyjny,przewod_gazowy,przewod_elektroenergetyczny,przewod_cieplowniczy,przewod_telekomunikacyjny',
