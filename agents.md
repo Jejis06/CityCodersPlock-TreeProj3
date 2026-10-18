@@ -85,6 +85,7 @@ Każde zapytanie HTTP do `/server` wysyła nagłówek **`x-user-id: <uuid>`**.
 | Anna Kowalska (Urzędnik 1) | `11111111-1111-1111-1111-111111111111` | `official` | Desktop, pełny dostęp |
 | Piotr Nowak (Urzędnik 2) | `22222222-2222-2222-2222-222222222222` | `official` | Desktop, demo MUTEX w drugiej karcie |
 | Jan Zieliński (Wykonawca) | `33333333-3333-3333-3333-333333333333` | `contractor` | Symulator tabletu (przełącznik "Ramka Tabletu / Pełny ekran", duże przyciski dotykowe) |
+| Marek Wiśniewski (Wykonawca 2 — tylko w danych/filtrach) | `44444444-4444-4444-4444-444444444444` | `contractor` | Ukryty na ekranie logowania `/`, widoczny w filtrach wykonawców i przypisany do ~połowy drzew/zadań |
 
 Serwer: middleware `server/src/middleware/currentUser.ts` czyta `x-user-id`, pobiera użytkownika z tabeli `users`
 i ustawia `req.user = { id, full_name, role }`. Brak/nieznany nagłówek → `401`. Middleware `requireRole('official')` → `403`.

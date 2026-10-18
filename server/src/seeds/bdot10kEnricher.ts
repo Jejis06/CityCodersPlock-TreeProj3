@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { config } from '../lib/config.js';
-import { CONTRACTOR_ID } from '../lib/constants.js';
+import { CONTRACTOR_ID, SECOND_CONTRACTOR_ID } from '../lib/constants.js';
 import { execute, nowIso, queryAll, queryOne, withTransaction } from '../lib/db.js';
 import { codePrefix } from '../lib/treeCode.js';
 import { reverseGeocodePoint } from '../routes/geocode.js';
@@ -374,7 +374,8 @@ export function enrichBdot10kPoints(
     const contract = isFromDecision ? CONTRACTS.gwar : contractForYear(plantingYear);
 
     const tasks = buildTasks({ rand, index, status, statusOrder, isAlert, createdMs, nowMs, createdBy });
-    const contractorId = tasks.length > 0 || rand() < 0.85 ? CONTRACTOR_ID : null;
+    const hasContractor = tasks.length > 0 || rand() < 0.85;
+    const contractorId = hasContractor ? (index % 2 === 1 ? SECOND_CONTRACTOR_ID : CONTRACTOR_ID) : null;
 
     const sourceLabel = point.name ? `, obiekt ${point.name}` : '';
     const decisionNote = decisionNumber
@@ -652,7 +653,7 @@ export function seedBdot10k(filePath: string = config.bdot10kKmlPath): Bdot10kSe
             category: task.category,
             subcategory: task.subcategory,
             status: task.status,
-            assignedTo: CONTRACTOR_ID,
+            assignedTo: plant.contractor_id ?? CONTRACTOR_ID,
             createdBy: task.created_by,
             description: task.description,
             contractNumber: task.contract_number,

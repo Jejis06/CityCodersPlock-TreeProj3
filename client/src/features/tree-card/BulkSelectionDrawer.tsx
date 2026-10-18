@@ -111,6 +111,7 @@ export function BulkSelectionDrawer({
   const [contractors, setContractors] = useState<User[]>([]);
   const [contractorId, setContractorId] = useState<string>(CONTRACTOR_ID);
   const [category, setCategory] = useState<TaskCategory>('pielegnacja');
+  const [cosmeticCategory, setCosmeticCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<TaskSubcategory>(DEFAULT_SUBCATEGORY.pielegnacja);
   const [contractNumber, setContractNumber] = useState('UM/ZIEL/12/2026');
   const [contractScanUrl, setContractScanUrl] = useState('');
@@ -185,6 +186,7 @@ export function BulkSelectionDrawer({
   };
 
   const handleCategoryChange = (next: TaskCategory) => {
+    setCosmeticCategory(null);
     setCategory(next);
     setSubcategory(DEFAULT_SUBCATEGORY[next]);
   };
@@ -397,22 +399,53 @@ export function BulkSelectionDrawer({
               >
                 <div className="space-y-1.5">
                   <Label>Kategoria pracy</Label>
-                  <div className="grid grid-cols-3 gap-1 rounded-lg bg-white p-1 ring-1 ring-slate-200">
-                    {CATEGORIES.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        aria-pressed={category === c}
-                        onClick={() => handleCategoryChange(c)}
-                        className={cn(
-                          'flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-md text-xs font-semibold transition-colors',
-                          category === c ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100',
-                        )}
-                      >
-                        <StatusDot status={TREE_STATUS_FOR_CATEGORY[c]} />
-                        {TASK_CATEGORY_LABELS[c]}
-                      </button>
-                    ))}
+                  <div className="flex flex-wrap gap-1 rounded-lg bg-white p-1 ring-1 ring-slate-200">
+                    {CATEGORIES.map((c) => {
+                      const active = cosmeticCategory === null && category === c;
+                      return (
+                        <button
+                          key={c}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => handleCategoryChange(c)}
+                          className={cn(
+                            'flex h-9 flex-1 basis-[30%] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-colors',
+                            active ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100',
+                          )}
+                        >
+                          <StatusDot status={TREE_STATUS_FOR_CATEGORY[c]} />
+                          {TASK_CATEGORY_LABELS[c]}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      aria-pressed={cosmeticCategory === 'przesadzanie'}
+                      onClick={() => setCosmeticCategory('przesadzanie')}
+                      className={cn(
+                        'flex h-9 flex-1 basis-[45%] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-colors',
+                        cosmeticCategory === 'przesadzanie'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-100',
+                      )}
+                    >
+                      <StatusDot status="blue" />
+                      Przesadzanie
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={cosmeticCategory === 'zniszczenia'}
+                      onClick={() => setCosmeticCategory('zniszczenia')}
+                      className={cn(
+                        'flex h-9 flex-1 basis-[45%] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-colors',
+                        cosmeticCategory === 'zniszczenia'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-100',
+                      )}
+                    >
+                      <StatusDot status="red" />
+                      Zniszczenia drzewa
+                    </button>
                   </div>
                 </div>
 

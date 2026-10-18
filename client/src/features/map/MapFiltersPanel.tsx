@@ -167,7 +167,11 @@ export function MapFiltersPanel({ filters, onChange, plantingYears, onAddressSel
       <FilterGroup label="Kategoria zadań">
         <Select
           value={filters.taskCategory ?? ''}
-          onChange={(e) => set({ taskCategory: (e.target.value || null) as TaskCategory | null })}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === 'przesadzanie' || val === 'zniszczenia') return;
+            set({ taskCategory: (val || null) as TaskCategory | null });
+          }}
         >
           <option value="">Wszystkie</option>
           {TASK_CATEGORIES.map((category) => (
@@ -175,6 +179,8 @@ export function MapFiltersPanel({ filters, onChange, plantingYears, onAddressSel
               {TASK_CATEGORY_LABELS[category]}
             </option>
           ))}
+          <option value="przesadzanie">Przesadzanie</option>
+          <option value="zniszczenia">Zniszczenia drzewa</option>
         </Select>
       </FilterGroup>
 

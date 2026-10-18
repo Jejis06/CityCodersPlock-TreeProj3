@@ -27,7 +27,7 @@ export function RoleSelectPage() {
   useEffect(() => {
     api
       .get<User[]>('/api/users')
-      .then(setUsers)
+      .then((all) => setUsers(all.filter((u) => u.id in ACCOUNT_DESCRIPTIONS)))
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : 'Nie udało się pobrać kont. Czy serwer działa?'),
       )

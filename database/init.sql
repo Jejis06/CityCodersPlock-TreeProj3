@@ -267,11 +267,12 @@ INSERT INTO species_dictionary (id, type, polish_name, latin_name, cultivar) VAL
 -- 4. SEED — dane testowe dla Płocka
 -- =============================================================================
 
--- 4.1 Użytkownicy (3 konta testowe)
+-- 4.1 Użytkownicy (3 konta logowania + 2. wykonawca do filtrowania zadań/roślin)
 INSERT INTO users (id, full_name, role, device) VALUES
-  ('11111111-1111-1111-1111-111111111111', 'Anna Kowalska', 'official',   'desktop'),
-  ('22222222-2222-2222-2222-222222222222', 'Piotr Nowak',   'official',   'desktop'),
-  ('33333333-3333-3333-3333-333333333333', 'Jan Zieliński', 'contractor', 'tablet');
+  ('11111111-1111-1111-1111-111111111111', 'Anna Kowalska',    'official',   'desktop'),
+  ('22222222-2222-2222-2222-222222222222', 'Piotr Nowak',      'official',   'desktop'),
+  ('33333333-3333-3333-3333-333333333333', 'Jan Zieliński',    'contractor', 'tablet'),
+  ('44444444-4444-4444-4444-444444444444', 'Marek Wiśniewski', 'contractor', 'tablet');
 
 -- 4.2 Rośliny (9 szt., wszystkie 4 kolory + 2 drzewa z decyzji przed upływem 3 lat gwarancji)
 --   green:  D1/2026, D6/2026, K1/2026, D8/2026 (z decyzji 2023), D9/2026 (z decyzji 2023)
@@ -296,7 +297,7 @@ VALUES
 
   ('aaaaaaaa-0000-0000-0000-000000000003', 'D3/2026', 'tree', 19, 52.54080, 19.68880,
    'Tumska 1, Płock', '146201_1.0008.991/4', 1952, 'yellow',
-   '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2026/014', '/demo/contracts/UM-ZZ-2026-014.pdf',
+   '44444444-4444-4444-4444-444444444444', 'UM/ZZ/2026/014', '/demo/contracts/UM-ZZ-2026-014.pdf',
    'WFOŚiGW w Warszawie (dotacja 80%)', 'Pomnik przyrody — kandydat.', '11111111-1111-1111-1111-111111111111'),
 
   ('aaaaaaaa-0000-0000-0000-000000000005', 'D5/2026', 'tree', 34, 52.53790, 19.70120,
@@ -333,7 +334,7 @@ VALUES
 
   ('aaaaaaaa-0000-0000-0000-000000000010', 'D9/2026', 'tree', 13, 52.54610, 19.69520,
    'Królewiecka 26, Płock', '146201_1.0008.563', 2023,
-   1, 'WOŚ.6131.58.2023', 'green', '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2023/102', '/demo/contracts/UM-ZZ-2026-014.pdf',
+   1, 'WOŚ.6131.58.2023', 'green', '44444444-4444-4444-4444-444444444444', 'UM/ZZ/2023/102', '/demo/contracts/UM-ZZ-2026-014.pdf',
    'Nasadzenie zastępcze z decyzji administracyjnej', 'Lipa drobnolistna Greenspire — nasadzenie z decyzji WOŚ.6131.58.2023 (upływ 3-letniej gwarancji za 23 dni).',
    '11111111-1111-1111-1111-111111111111',
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 years', '+23 days'),
@@ -366,10 +367,10 @@ VALUES
    strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-2 hours'),
    NULL, NULL, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 days')),
 
-  -- D3: nawożenie — czeka na zatwierdzenie (kolejka MUTEX)
+  -- D3: nawożenie — czeka na zatwierdzenie (kolejka MUTEX, przypisane do 2. wykonawcy)
   ('bbbbbbbb-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000003',
    'pielegnacja', 'nawozenie', 'pending_approval',
-   '33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111',
+   '44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111',
    'Nawożenie mikoryzowe w strefie korzeniowej.',
    'UM/ZZ/2026/014', '/demo/contracts/UM-ZZ-2026-014.pdf',
    NULL, '/demo/photos/fertilizing.svg',

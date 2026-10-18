@@ -1,4 +1,5 @@
-import { execute, nowIso, queryAll, withTransaction } from '../lib/db.js';
+import { SECOND_CONTRACTOR_ID } from '../lib/constants.js';
+import { execute, nowIso, queryAll, queryOne, withTransaction } from '../lib/db.js';
 
 /**
  * Permanent data corrections applied on every server start and after `npm run db:reset`.
@@ -51,6 +52,38 @@ export function applyDatabaseFixes(): DatabaseFixesSummary {
   const openStatuses = inList('openStatus', OPEN_TASK_STATUSES);
 
   return withTransaction(() => {
+    // Ensure 2nd contractor exists in DB for contractor filtering
+    execute(
+      `INSERT OR IGNORE INTO users (id, full_name, role, device)
+       VALUES (:id, 'Marek Wiśniewski', 'contractor', 'tablet')`,
+      { id: SECOND_CONTRACTOR_ID },
+    );
+
+    const secondContractorTrees =
+      queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM trees WHERE contractor_id = :id`, {
+        id: SECOND_CONTRACTOR_ID,
+      })?.n ?? 0;
+
+    if (secondContractorTrees === 0) {
+      execute(
+        `UPDATE trees
+            SET contractor_id = :secondId
+          WHERE contractor_id IS NOT NULL
+            AND (
+              id IN ('aaaaaaaa-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000010')
+              OR (id LIKE 'bd010000-1462-4000-8000-%' AND CAST(substr(id, -4) AS INTEGER) % 2 = 0)
+            )`,
+        { secondId: SECOND_CONTRACTOR_ID },
+      );
+
+      execute(
+        `UPDATE tasks
+            SET assigned_to = :secondId
+          WHERE tree_id IN (SELECT id FROM trees WHERE contractor_id = :secondId)`,
+        { secondId: SECOND_CONTRACTOR_ID },
+      );
+    }
+
     const removed = execute(
       `DELETE FROM trees WHERE code IN (${removedCodes.sql}) OR id IN (${removedIds.sql})`,
       { ...removedCodes.params, ...removedIds.params },

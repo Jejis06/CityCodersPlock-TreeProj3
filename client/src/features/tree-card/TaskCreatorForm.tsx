@@ -19,6 +19,11 @@ import {
 
 const CATEGORIES = Object.keys(TASK_SUBCATEGORIES) as TaskCategory[];
 
+const COSMETIC_CATEGORIES: { key: string; label: string; dot: 'blue' | 'red' }[] = [
+  { key: 'przesadzanie', label: 'Przesadzanie', dot: 'blue' },
+  { key: 'zniszczenia', label: 'Zniszczenia drzewa', dot: 'red' },
+];
+
 const DEFAULT_SUBCATEGORY: Record<TaskCategory, TaskSubcategory> = {
   pielegnacja: 'nawozenie',
   wycinka: 'wycinka',
@@ -35,6 +40,7 @@ export function TaskCreatorForm({ tree, onCreated, onCancel }: TaskCreatorFormPr
   const id = useId();
   const fileInput = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState<TaskCategory>('pielegnacja');
+  const [cosmeticCategory, setCosmeticCategory] = useState<string | null>(null);
   const [subcategory, setSubcategory] = useState<TaskSubcategory>(DEFAULT_SUBCATEGORY.pielegnacja);
   const [contractNumber, setContractNumber] = useState(tree.contract_number ?? '');
   const [contractScanUrl, setContractScanUrl] = useState(tree.contract_scan_url ?? '');
@@ -46,6 +52,7 @@ export function TaskCreatorForm({ tree, onCreated, onCancel }: TaskCreatorFormPr
   const nextStatus = TREE_STATUS_FOR_CATEGORY[category];
 
   const changeCategory = (next: TaskCategory) => {
+    setCosmeticCategory(null);
     setCategory(next);
     setSubcategory(DEFAULT_SUBCATEGORY[next]);
   };
@@ -89,22 +96,43 @@ export function TaskCreatorForm({ tree, onCreated, onCancel }: TaskCreatorFormPr
     <form onSubmit={submit} className="space-y-4 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
       <div className="space-y-1.5">
         <Label>Kategoria</Label>
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-white p-1 ring-1 ring-slate-200">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              aria-pressed={category === c}
-              onClick={() => changeCategory(c)}
-              className={cn(
-                'flex h-9 items-center justify-center gap-1.5 rounded-md text-sm font-medium transition-colors',
-                category === c ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100',
-              )}
-            >
-              <StatusDot status={TREE_STATUS_FOR_CATEGORY[c]} />
-              {TASK_CATEGORY_LABELS[c]}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-1 rounded-lg bg-white p-1 ring-1 ring-slate-200">
+          {CATEGORIES.map((c) => {
+            const active = cosmeticCategory === null && category === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={active}
+                onClick={() => changeCategory(c)}
+                className={cn(
+                  'flex h-9 flex-1 basis-[30%] items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-sm font-medium transition-colors',
+                  active ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100',
+                )}
+              >
+                <StatusDot status={TREE_STATUS_FOR_CATEGORY[c]} />
+                {TASK_CATEGORY_LABELS[c]}
+              </button>
+            );
+          })}
+          {COSMETIC_CATEGORIES.map((c) => {
+            const active = cosmeticCategory === c.key;
+            return (
+              <button
+                key={c.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setCosmeticCategory(c.key)}
+                className={cn(
+                  'flex h-9 flex-1 basis-[45%] items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-sm font-medium transition-colors',
+                  active ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100',
+                )}
+              >
+                <StatusDot status={c.dot} />
+                {c.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
