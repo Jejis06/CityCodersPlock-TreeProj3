@@ -21,7 +21,7 @@ const CATEGORIES = Object.keys(TASK_SUBCATEGORIES) as TaskCategory[];
 
 const COSMETIC_CATEGORIES: { key: string; label: string; dot: 'blue' | 'red' }[] = [
   { key: 'przesadzanie', label: 'Przesadzanie', dot: 'blue' },
-  { key: 'zniszczenia', label: 'Zniszczenia drzewa', dot: 'red' },
+  { key: 'uszkodzenie', label: 'Uszkodzenie drzewa', dot: 'red' },
 ];
 
 const DEFAULT_SUBCATEGORY: Record<TaskCategory, TaskSubcategory> = {
@@ -49,7 +49,8 @@ export function TaskCreatorForm({ tree, onCreated, onCancel }: TaskCreatorFormPr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nextStatus = TREE_STATUS_FOR_CATEGORY[category];
+  const activeCosmetic = COSMETIC_CATEGORIES.find((c) => c.key === cosmeticCategory) ?? null;
+  const nextStatus = activeCosmetic ? activeCosmetic.dot : TREE_STATUS_FOR_CATEGORY[category];
 
   const changeCategory = (next: TaskCategory) => {
     setCosmeticCategory(null);
@@ -139,22 +140,32 @@ export function TaskCreatorForm({ tree, onCreated, onCancel }: TaskCreatorFormPr
       <div className="space-y-1.5">
         <Label>Podkategoria</Label>
         <div className="flex flex-wrap gap-2">
-          {TASK_SUBCATEGORIES[category].map((s) => (
+          {activeCosmetic ? (
             <button
-              key={s}
               type="button"
-              aria-pressed={subcategory === s}
-              onClick={() => setSubcategory(s)}
-              className={cn(
-                'h-8 rounded-full px-3 text-sm font-medium ring-1 transition-colors',
-                subcategory === s
-                  ? 'bg-emerald-100 text-emerald-900 ring-emerald-600'
-                  : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50',
-              )}
+              aria-pressed={true}
+              className="h-8 rounded-full bg-emerald-100 px-3 text-sm font-medium text-emerald-900 ring-1 ring-emerald-600 transition-colors"
             >
-              {TASK_SUBCATEGORY_LABELS[s]}
+              {activeCosmetic.label}
             </button>
-          ))}
+          ) : (
+            TASK_SUBCATEGORIES[category].map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-pressed={subcategory === s}
+                onClick={() => setSubcategory(s)}
+                className={cn(
+                  'h-8 rounded-full px-3 text-sm font-medium ring-1 transition-colors',
+                  subcategory === s
+                    ? 'bg-emerald-100 text-emerald-900 ring-emerald-600'
+                    : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50',
+                )}
+              >
+                {TASK_SUBCATEGORY_LABELS[s]}
+              </button>
+            ))
+          )}
         </div>
       </div>
 

@@ -135,9 +135,20 @@ function quota<K extends string>(total: number, shares: Record<K, number>): K[] 
 // 3. Enrichment dictionaries (simulation data for the jury demo)
 // ---------------------------------------------------------------------------
 
-/** species_dictionary ids; repeated ids = more frequent species (Lipa, Klon). */
-const TREE_SPECIES_IDS = [12, 13, 14, 12, 1, 2, 3, 1, 19, 20, 37, 38, 26, 43, 44, 28, 31, 39, 16, 24, 49, 55, 61, 22, 45, 5, 7, 40];
-const SHRUB_SPECIES_IDS = [79, 80, 71, 72, 73, 74, 76, 81, 83, 91, 93, 96, 98, 99];
+/**
+ * All 70 tree species (`1..70`) and 30 shrub species (`71..100`) from `species_dictionary`,
+ * ordered with distinct `polish_name` genera first so every seeded plant gets a unique species.
+ */
+export const TREE_SPECIES_IDS = [
+  1, 12, 19, 24, 28, 31, 34, 37, 39, 41, 43, 47, 49, 52, 53, 55, 56, 58, 59, 60, 61, 62, 63, 65, 67, 68,
+  69, 70, 5, 15, 21, 26, 36, 40, 45, 48, 51, 57, 64, 66, 7, 16, 22, 27, 46, 8, 17, 23, 9, 18, 10, 11,
+  2, 3, 4, 6, 13, 14, 20, 25, 29, 30, 32, 33, 35, 38, 42, 44, 50, 54,
+] as const;
+
+export const SHRUB_SPECIES_IDS = [
+  71, 73, 74, 76, 77, 79, 81, 83, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100,
+  72, 75, 78, 80, 82, 84,
+] as const;
 
 interface District {
   name: string;
@@ -322,6 +333,7 @@ export function enrichBdot10kPoints(
   const statusCounters: Record<TreeStatus, number> = { green: 0, yellow: 0, blue: 0, red: 0 };
   let alertCounter = 0;
   let decisionCounter = 0;
+  let shrubSpeciesCounter = 0;
 
   return points.map((point, index): EnrichedPlant => {
     const type = types[index] ?? 'tree';
@@ -357,7 +369,13 @@ export function enrichBdot10kPoints(
       ? `WKS-I.6131.${12 + 7 * decisionCounter++}.${decisionYear}.${pick(rand, DECISION_INITIALS)}`
       : null;
 
-    const speciesId = pick(rand, type === 'tree' ? TREE_SPECIES_IDS : SHRUB_SPECIES_IDS);
+    // Consume 1 PRNG step to keep all subsequent random sequences identical,
+    // while assigning a maximally diverse species_id without collisions.
+    void rand();
+    const speciesId =
+      type === 'tree'
+        ? TREE_SPECIES_IDS[index % TREE_SPECIES_IDS.length]!
+        : SHRUB_SPECIES_IDS[shrubSpeciesCounter++ % SHRUB_SPECIES_IDS.length]!;
     const fallbackDistrict =
       DISTRICTS.find((d) => d.matches(point.latitude, point.longitude)) ?? DISTRICTS[DISTRICTS.length - 1]!;
     // Advance PRNG identically regardless of whether geocodedCache has this point.

@@ -1,5 +1,6 @@
 import { SECOND_CONTRACTOR_ID } from '../lib/constants.js';
 import { execute, nowIso, queryAll, queryOne, withTransaction } from '../lib/db.js';
+import { SHRUB_SPECIES_IDS, TREE_SPECIES_IDS } from './bdot10kEnricher.js';
 
 /**
  * Permanent data corrections applied on every server start and after `npm run db:reset`.
@@ -82,6 +83,26 @@ export function applyDatabaseFixes(): DatabaseFixesSummary {
           WHERE tree_id IN (SELECT id FROM trees WHERE contractor_id = :secondId)`,
         { secondId: SECOND_CONTRACTOR_ID },
       );
+    }
+
+    // Ensure BDOT10k plants have diverse species across the dictionary
+    const bdotPlants = queryAll<{ id: string; type: 'tree' | 'shrub'; species_id: number }>(
+      `SELECT id, type, species_id FROM trees WHERE id LIKE 'bd010000-1462-4000-8000-%' ORDER BY id ASC`,
+    );
+    let shrubCounter = 0;
+    for (const plant of bdotPlants) {
+      const pointNum = Number.parseInt(plant.id.slice(-12), 10);
+      const index = Number.isFinite(pointNum) && pointNum > 0 ? pointNum - 1 : 0;
+      const targetSpeciesId =
+        plant.type === 'tree'
+          ? TREE_SPECIES_IDS[index % TREE_SPECIES_IDS.length]!
+          : SHRUB_SPECIES_IDS[shrubCounter++ % SHRUB_SPECIES_IDS.length]!;
+      if (plant.species_id !== targetSpeciesId) {
+        execute(`UPDATE trees SET species_id = :speciesId WHERE id = :id`, {
+          id: plant.id,
+          speciesId: targetSpeciesId,
+        });
+      }
     }
 
     const removed = execute(

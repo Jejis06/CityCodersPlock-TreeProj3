@@ -242,7 +242,12 @@ export function BulkSelectionDrawer({
     }
   };
 
-  const nextStatus = TREE_STATUS_FOR_CATEGORY[category];
+  const nextStatus =
+    cosmeticCategory === 'przesadzanie'
+      ? 'blue'
+      : cosmeticCategory === 'uszkodzenie'
+        ? 'red'
+        : TREE_STATUS_FOR_CATEGORY[category];
   const open = trees.length > 0;
 
   return (
@@ -434,17 +439,17 @@ export function BulkSelectionDrawer({
                     </button>
                     <button
                       type="button"
-                      aria-pressed={cosmeticCategory === 'zniszczenia'}
-                      onClick={() => setCosmeticCategory('zniszczenia')}
+                      aria-pressed={cosmeticCategory === 'uszkodzenie'}
+                      onClick={() => setCosmeticCategory('uszkodzenie')}
                       className={cn(
                         'flex h-9 flex-1 basis-[45%] cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-colors',
-                        cosmeticCategory === 'zniszczenia'
+                        cosmeticCategory === 'uszkodzenie'
                           ? 'bg-indigo-600 text-white shadow-sm'
                           : 'text-slate-600 hover:bg-slate-100',
                       )}
                     >
                       <StatusDot status="red" />
-                      Zniszczenia drzewa
+                      Uszkodzenie drzewa
                     </button>
                   </div>
                 </div>
@@ -452,22 +457,32 @@ export function BulkSelectionDrawer({
                 <div className="space-y-1.5">
                   <Label>Podkategoria zabiegu</Label>
                   <div className="flex flex-wrap gap-1.5">
-                    {TASK_SUBCATEGORIES[category].map((s) => (
+                    {cosmeticCategory !== null ? (
                       <button
-                        key={s}
                         type="button"
-                        aria-pressed={subcategory === s}
-                        onClick={() => setSubcategory(s)}
-                        className={cn(
-                          'h-8 cursor-pointer rounded-full px-3 text-xs font-semibold ring-1 transition-colors',
-                          subcategory === s
-                            ? 'bg-indigo-100 text-indigo-950 ring-indigo-600'
-                            : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50',
-                        )}
+                        aria-pressed={true}
+                        className="h-8 cursor-pointer rounded-full bg-indigo-100 px-3 text-xs font-semibold text-indigo-950 ring-1 ring-indigo-600 transition-colors"
                       >
-                        {TASK_SUBCATEGORY_LABELS[s]}
+                        {cosmeticCategory === 'przesadzanie' ? 'Przesadzanie' : 'Uszkodzenie drzewa'}
                       </button>
-                    ))}
+                    ) : (
+                      TASK_SUBCATEGORIES[category].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          aria-pressed={subcategory === s}
+                          onClick={() => setSubcategory(s)}
+                          className={cn(
+                            'h-8 cursor-pointer rounded-full px-3 text-xs font-semibold ring-1 transition-colors',
+                            subcategory === s
+                              ? 'bg-indigo-100 text-indigo-950 ring-indigo-600'
+                              : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50',
+                          )}
+                        >
+                          {TASK_SUBCATEGORY_LABELS[s]}
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
 
