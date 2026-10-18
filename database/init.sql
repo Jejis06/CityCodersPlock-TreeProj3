@@ -275,7 +275,7 @@ INSERT INTO users (id, full_name, role, device) VALUES
   ('44444444-4444-4444-4444-444444444444', 'Marek Wiśniewski', 'contractor', 'tablet');
 
 -- 4.2 Rośliny (9 szt., wszystkie 4 kolory + 2 drzewa z decyzji przed upływem 3 lat gwarancji)
---   green:  D1/2026, D6/2026, K1/2026, D8/2026 (z decyzji 2023), D9/2026 (z decyzji 2023)
+--   green:  D1/2026, D6/2026, K1/2026, D8/2023 (z decyzji 2023), D9/2026 (z decyzji 2023)
 --   yellow: D2/2026 (czeka na zatwierdzenie), D3/2026 (czeka na zatwierdzenie)
 --   red:    D5/2026 (wycinka odrzucona do poprawki)
 --   (D4/2026 usunięty trwale — patrz server/src/seeds/databaseFixes.ts)
@@ -324,7 +324,7 @@ INSERT INTO trees
    is_from_decision, decision_number, status, contractor_id, contract_number, contract_scan_url,
    funding_source, notes, created_by, created_at, updated_at)
 VALUES
-  ('aaaaaaaa-0000-0000-0000-000000000009', 'D8/2026', 'tree', 28, 52.54420, 19.69140,
+  ('aaaaaaaa-0000-0000-0000-000000000009', 'D8/2023', 'tree', 28, 52.54420, 19.69140,
    'Kolegialna 3A, Płock', '146201_1.0008.768', 2023,
    1, 'WOŚ.6131.44.2023', 'green', '33333333-3333-3333-3333-333333333333', 'UM/ZZ/2023/089', '/demo/contracts/UM-ZZ-2026-011.pdf',
    'Nasadzenie zastępcze z decyzji administracyjnej', 'Grab pospolity — nasadzenie kompensacyjne z decyzji WOŚ.6131.44.2023 (upływ 3-letniej gwarancji za 11 dni).',

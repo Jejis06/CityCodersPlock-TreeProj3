@@ -310,7 +310,7 @@ Każdy element to osobny, wymienialny moduł (Feature-Sliced Design) w `client/s
 - `is_from_decision`: `INTEGER NOT NULL DEFAULT 0 CHECK (is_from_decision IN (0, 1))` — flaga określająca, czy roślina pochodzi z decyzji administracyjnej (nasadzenie zastępcze/kompensacyjne objęte 3-letnią gwarancją).
 - `decision_number`: `TEXT` (opcjonalny numer decyzji administracyjnej, np. `WOŚ.6131.44.2023`).
 - `parcel_geometry`: `TEXT` (zserializowany GeoJSON obrysu działki ewidencyjnej pobrany z ULDK, opcjonalny).
-- Seed (`database/init.sql`): dodano 2 drzewa z opcją `is_from_decision = 1` (`D8/2026`, `D9/2026`, posadzone w 2023 r., którym zostało odpowiednio 11 i 23 dni do upływu 3 lat od posadzenia), aby od razu wyświetlały się w panelu alertów 3-letnich decyzji.
+- Seed (`database/init.sql`): dodano 2 drzewa z opcją `is_from_decision = 1` (`D8/2023`, `D9/2026`, posadzone w 2023 r., którym zostało odpowiednio 11 i 23 dni do upływu 3 lat od posadzenia), aby od razu wyświetlały się w panelu alertów 3-letnich decyzji.
 
 ### Backend — `server/src/routes/geocode.ts` i `server/src/routes/trees.ts`
 - `GET /api/geocode/reverse?lat=&lng=` → `{ lat, lng, address, street, house_number, plot_number, parcel_number, parcel_label, precinct, commune, geometry }` (ULDK `GetParcelByXY` + UUG `GetAddressReverse`).
