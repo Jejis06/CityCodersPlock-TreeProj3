@@ -136,19 +136,53 @@ function quota<K extends string>(total: number, shares: Record<K, number>): K[] 
 // ---------------------------------------------------------------------------
 
 /**
- * All 70 tree species (`1..70`) and 30 shrub species (`71..100`) from `species_dictionary`,
- * ordered with distinct `polish_name` genera first so every seeded plant gets a unique species.
+ * Stepped, realistic species frequency distribution for BDOT10k trees.
+ * Combined with the seed trees, total species counts across the inventory are:
+ * - Lipa drobnolistna (id: 12): 10 BDOT + 2 seed = 12 total
+ * - Klon pospolity (id: 1): 9 BDOT + 1 seed = 10 total
+ * - Dąb szypułkowy (id: 19): 7 BDOT + 1 seed = 8 total
+ * - Grab pospolity (id: 28): 6 BDOT + 1 seed = 7 total
+ * - Platan klonolistny (id: 37): 5 BDOT + 0 seed = 5 total
+ * - Brzoza brodawkowata (id: 24): 4 BDOT + 0 seed = 4 total
+ * - Jesion wyniosły (id: 34): 2 BDOT + 1 seed = 3 total
+ * - Kasztanowiec pospolity (id: 39): 2 BDOT + 0 seed = 2 total
+ * - Klon jawor (id: 5): 2 BDOT + 0 seed = 2 total
+ * - Buk pospolity (id: 31): 1 BDOT + 0 seed = 1 total
+ * - Robinia akacjowa (id: 41): 1 BDOT + 0 seed = 1 total
+ * - Wiśnia piłkowana (id: 49): 1 BDOT + 0 seed = 1 total
+ * (+ Grusza drobnoowocowa id: 55: 1 seed, Miłorząb dwuklapowy id: 61: 1 seed)
  */
-export const TREE_SPECIES_IDS = [
-  1, 12, 19, 24, 28, 31, 34, 37, 39, 41, 43, 47, 49, 52, 53, 55, 56, 58, 59, 60, 61, 62, 63, 65, 67, 68,
-  69, 70, 5, 15, 21, 26, 36, 40, 45, 48, 51, 57, 64, 66, 7, 16, 22, 27, 46, 8, 17, 23, 9, 18, 10, 11,
-  2, 3, 4, 6, 13, 14, 20, 25, 29, 30, 32, 33, 35, 38, 42, 44, 50, 54,
+export const BDOT_TREE_SPECIES_50 = [
+  12, 1, 19, 28, 37, 24, 34, 39, 5, 31, 41, 49,
+  12, 1, 19, 28, 37, 24, 34, 39, 5,
+  12, 1, 19, 28, 37, 24,
+  12, 1, 19, 28, 37, 24,
+  12, 1, 19, 28, 37,
+  12, 1, 19, 28,
+  12, 1, 19,
+  12, 1,
+  12, 1,
+  12,
 ] as const;
 
-export const SHRUB_SPECIES_IDS = [
-  71, 73, 74, 76, 77, 79, 81, 83, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100,
-  72, 75, 78, 80, 82, 84,
+/**
+ * Stepped frequency distribution for BDOT10k shrubs:
+ * - Tawuła japońska (id: 71): 4 BDOT + 1 seed = 5 total
+ * - Berberys Thunberga (id: 74): 3 BDOT + 0 seed = 3 total
+ * - Hortensja bukietowa (id: 79): 2 BDOT + 0 seed = 2 total
+ * - Pęcherznica kalinolistna (id: 81): 2 BDOT + 0 seed = 2 total
+ * - Dereń biały (id: 83): 1 BDOT + 0 seed = 1 total
+ * - Sosna górska (id: 98): 1 BDOT + 0 seed = 1 total
+ */
+export const BDOT_SHRUB_SPECIES_13 = [
+  71, 74, 79, 81, 83, 98,
+  71, 74, 79, 81,
+  71, 74,
+  71,
 ] as const;
+
+export const TREE_SPECIES_IDS = BDOT_TREE_SPECIES_50;
+export const SHRUB_SPECIES_IDS = BDOT_SHRUB_SPECIES_13;
 
 interface District {
   name: string;
@@ -333,6 +367,7 @@ export function enrichBdot10kPoints(
   const statusCounters: Record<TreeStatus, number> = { green: 0, yellow: 0, blue: 0, red: 0 };
   let alertCounter = 0;
   let decisionCounter = 0;
+  let treeSpeciesCounter = 0;
   let shrubSpeciesCounter = 0;
 
   return points.map((point, index): EnrichedPlant => {
@@ -370,11 +405,11 @@ export function enrichBdot10kPoints(
       : null;
 
     // Consume 1 PRNG step to keep all subsequent random sequences identical,
-    // while assigning a maximally diverse species_id without collisions.
+    // while assigning a stepped frequency species_id.
     void rand();
     const speciesId =
       type === 'tree'
-        ? TREE_SPECIES_IDS[index % TREE_SPECIES_IDS.length]!
+        ? TREE_SPECIES_IDS[treeSpeciesCounter++ % TREE_SPECIES_IDS.length]!
         : SHRUB_SPECIES_IDS[shrubSpeciesCounter++ % SHRUB_SPECIES_IDS.length]!;
     const fallbackDistrict =
       DISTRICTS.find((d) => d.matches(point.latitude, point.longitude)) ?? DISTRICTS[DISTRICTS.length - 1]!;

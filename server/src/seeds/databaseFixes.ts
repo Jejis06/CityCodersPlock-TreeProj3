@@ -85,30 +85,37 @@ export function applyDatabaseFixes(): DatabaseFixesSummary {
       );
     }
 
-    // Ensure BDOT10k plants have diverse species across the dictionary
-    const bdotPlants = queryAll<{ id: string; type: 'tree' | 'shrub'; species_id: number }>(
-      `SELECT id, type, species_id FROM trees WHERE id LIKE 'bd010000-1462-4000-8000-%' ORDER BY id ASC`,
+    const removed = execute(
+      `DELETE FROM trees WHERE code IN (${removedCodes.sql}) OR id IN (${removedIds.sql})`,
+      { ...removedCodes.params, ...removedIds.params },
     );
-    let shrubCounter = 0;
-    for (const plant of bdotPlants) {
-      const pointNum = Number.parseInt(plant.id.slice(-12), 10);
-      const index = Number.isFinite(pointNum) && pointNum > 0 ? pointNum - 1 : 0;
-      const targetSpeciesId =
-        plant.type === 'tree'
-          ? TREE_SPECIES_IDS[index % TREE_SPECIES_IDS.length]!
-          : SHRUB_SPECIES_IDS[shrubCounter++ % SHRUB_SPECIES_IDS.length]!;
+
+    // Ensure BDOT10k plants have stepped, realistic species counts (12, 10, 8, 7, 5, 4, 3, 2, 1)
+    const bdotTrees = queryAll<{ id: string; species_id: number }>(
+      `SELECT id, species_id FROM trees WHERE id LIKE 'bd010000-1462-4000-8000-%' AND type = 'tree' ORDER BY id ASC`,
+    );
+    bdotTrees.forEach((plant, idx) => {
+      const targetSpeciesId = TREE_SPECIES_IDS[idx % TREE_SPECIES_IDS.length]!;
       if (plant.species_id !== targetSpeciesId) {
         execute(`UPDATE trees SET species_id = :speciesId WHERE id = :id`, {
           id: plant.id,
           speciesId: targetSpeciesId,
         });
       }
-    }
+    });
 
-    const removed = execute(
-      `DELETE FROM trees WHERE code IN (${removedCodes.sql}) OR id IN (${removedIds.sql})`,
-      { ...removedCodes.params, ...removedIds.params },
+    const bdotShrubs = queryAll<{ id: string; species_id: number }>(
+      `SELECT id, species_id FROM trees WHERE id LIKE 'bd010000-1462-4000-8000-%' AND type = 'shrub' ORDER BY id ASC`,
     );
+    bdotShrubs.forEach((plant, idx) => {
+      const targetSpeciesId = SHRUB_SPECIES_IDS[idx % SHRUB_SPECIES_IDS.length]!;
+      if (plant.species_id !== targetSpeciesId) {
+        execute(`UPDATE trees SET species_id = :speciesId WHERE id = :id`, {
+          id: plant.id,
+          speciesId: targetSpeciesId,
+        });
+      }
+    });
 
     const greenTreeIds = queryAll<{ id: string }>(`SELECT id FROM trees WHERE code IN (${greenCodes.sql})`, greenCodes.params).map(
       (row) => row.id,
